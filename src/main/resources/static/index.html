@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kafka Browser Consumer</title>
+    <style>
+        :root {
+            --bg: #0f1419;
+            --surface: #1a2332;
+            --border: #2d3a4f;
+            --text: #e7ecf3;
+            --muted: #8b9cb3;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --record-bg: #111827;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 3rem;
+            min-height: 100vh;
+        }
+
+        .container.config-collapsed header {
+            margin-bottom: 1rem;
+        }
+
+        .container.config-collapsed header p {
+            display: none;
+        }
+
+        header {
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            margin: 0 0 0.5rem;
+            font-size: 1.75rem;
+            font-weight: 600;
+        }
+
+        header p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card h2 {
+            margin: 0 0 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--muted);
+        }
+
+        #configSection.config-collapsed {
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        #configSection.config-collapsed h2 {
+            display: none;
+        }
+
+        #configSummary {
+            font-size: 0.875rem;
+            color: var(--muted);
+            margin-bottom: 0.75rem;
+        }
+
+        #configSummary strong {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        #streamSection {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            margin-bottom: 0;
+        }
+
+        #streamSection .status-bar {
+            flex-shrink: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 0.65rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font: inherit;
+            transition: border-color 0.15s;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        input:read-only, textarea:read-only {
+            opacity: 0.85;
+            cursor: default;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-size: 0.8125rem;
+        }
+
+        .field {
+            margin-bottom: 1rem;
+        }
+
+        .field:last-child {
+            margin-bottom: 0;
+        }
+
+        .hint {
+            margin-top: 0.35rem;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        button {
+            padding: 0.6rem 1.1rem;
+            border: none;
+            border-radius: 8px;
+            font: inherit;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s, opacity 0.15s;
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            border-color: var(--muted);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
+        }
+
+        .status-dot.connected { background: var(--success); }
+        .status-dot.streaming { background: var(--warning); animation: pulse 1.5s infinite; }
+        .status-dot.error { background: var(--danger); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        #stream-output {
+            flex: 1;
+            min-height: 420px;
+            overflow-y: auto;
+            background: var(--record-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-size: 0.8125rem;
+            line-height: 1.5;
+        }
+
+        .msg-status { color: var(--muted); font-style: italic; }
+        .msg-error { color: var(--danger); }
+        .msg-record {
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .msg-record:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+        .record-meta {
+            color: var(--muted);
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .record-payload {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container" id="appContainer">
+        <header>
+            <h1>Kafka Browser Consumer</h1>
+            <p>Configure a Kafka cluster and topic, then stream messages live to your browser.</p>
+        </header>
+
+        <section class="card" id="configSection">
+            <h2>Configuration</h2>
+
+            <div id="configBody">
+                <div class="field">
+                    <label for="bootstrapServers">Kafka Bootstrap Servers</label>
+                    <input type="text" id="bootstrapServers" placeholder="localhost:9092,localhost:9093">
+                    <p class="hint">Comma-separated broker addresses.</p>
+                </div>
+
+                <div class="field">
+                    <label for="topic">Topic Name</label>
+                    <input type="text" id="topic" placeholder="my-topic">
+                </div>
+
+                <div class="field">
+                    <label for="additionalProperties">Additional Properties (optional)</label>
+                    <textarea id="additionalProperties" placeholder="# security.protocol=SASL_SSL&#10;# sasl.mechanism=PLAIN"></textarea>
+                    <p class="hint">One key=value per line. Lines starting with # are ignored.</p>
+                </div>
+            </div>
+
+            <div id="configSummary" class="hidden">
+                <strong id="configSummaryTopic"></strong> on <span id="configSummaryServers"></span>
+            </div>
+
+            <div class="actions">
+                <button type="button" id="submitConfigBtn" class="btn-primary">Submit Config</button>
+                <button type="button" id="editConfigBtn" class="btn-secondary hidden">Edit Config</button>
+                <button type="button" id="streamBtn" class="btn-primary" disabled>Start Streaming</button>
+            </div>
+        </section>
+
+        <section class="card" id="streamSection">
+            <h2>Live Stream</h2>
+            <div class="status-bar">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Idle</span>
+            </div>
+            <div id="stream-output"></div>
+        </section>
+    </div>
+
+    <script>
+        const appContainer = document.getElementById('appContainer');
+        const configSection = document.getElementById('configSection');
+        const configBody = document.getElementById('configBody');
+        const configSummary = document.getElementById('configSummary');
+        const configSummaryTopic = document.getElementById('configSummaryTopic');
+        const configSummaryServers = document.getElementById('configSummaryServers');
+        const bootstrapServers = document.getElementById('bootstrapServers');
+        const topic = document.getElementById('topic');
+        const additionalProperties = document.getElementById('additionalProperties');
+        const submitConfigBtn = document.getElementById('submitConfigBtn');
+        const editConfigBtn = document.getElementById('editConfigBtn');
+        const streamBtn = document.getElementById('streamBtn');
+        const streamOutput = document.getElementById('stream-output');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        let configSubmitted = false;
+        let isStreaming = false;
+        let socket = null;
+
+        const configFields = [bootstrapServers, topic, additionalProperties];
+
+        function setConfigCollapsed(collapsed) {
+            configBody.classList.toggle('hidden', collapsed);
+            configSummary.classList.toggle('hidden', !collapsed);
+            configSection.classList.toggle('config-collapsed', collapsed);
+            appContainer.classList.toggle('config-collapsed', collapsed);
+        }
+
+        function updateConfigSummary() {
+            configSummaryTopic.textContent = topic.value.trim();
+            configSummaryServers.textContent = bootstrapServers.value.trim();
+        }
+
+        function setConfigReadonly(readonly) {
+            configFields.forEach(field => field.readOnly = readonly);
+            submitConfigBtn.classList.toggle('hidden', readonly);
+            editConfigBtn.classList.toggle('hidden', !readonly);
+            streamBtn.disabled = !readonly || !bootstrapServers.value.trim() || !topic.value.trim();
+            setConfigCollapsed(readonly);
+            if (readonly) {
+                updateConfigSummary();
+            }
+        }
+
+        function setStatus(state, text) {
+            statusDot.className = 'status-dot ' + state;
+            statusText.textContent = text;
+        }
+
+        function appendMessage(html, className) {
+            const el = document.createElement('div');
+            el.className = className;
+            el.innerHTML = html;
+            streamOutput.appendChild(el);
+            streamOutput.scrollTop = streamOutput.scrollHeight;
+        }
+
+        function getConfig() {
+            return {
+                bootstrapServers: bootstrapServers.value.trim(),
+                topic: topic.value.trim(),
+                additionalProperties: additionalProperties.value.trim()
+            };
+        }
+
+        function validateConfig() {
+            if (!bootstrapServers.value.trim()) {
+                setStatus('error', 'Bootstrap servers are required');
+                return false;
+            }
+            if (!topic.value.trim()) {
+                setStatus('error', 'Topic name is required');
+                return false;
+            }
+            return true;
+        }
+
+        submitConfigBtn.addEventListener('click', () => {
+            if (!validateConfig()) return;
+            configSubmitted = true;
+            setConfigReadonly(true);
+            setStatus('', 'Config saved — ready to stream');
+        });
+
+        editConfigBtn.addEventListener('click', () => {
+            if (isStreaming) return;
+            configSubmitted = false;
+            setConfigReadonly(false);
+            setStatus('', 'Editing configuration');
+        });
+
+        function updateStreamButton() {
+            if (isStreaming) {
+                streamBtn.textContent = 'Stop Streaming';
+                streamBtn.className = 'btn-danger';
+            } else {
+                streamBtn.textContent = 'Start Streaming';
+                streamBtn.className = 'btn-primary';
+            }
+        }
+
+        function connectWebSocket() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(`${protocol}//${location.host}/ws/stream`);
+
+            socket.onopen = () => {
+                setStatus('connected', 'Connected — starting consumer...');
+                socket.send(JSON.stringify({
+                    action: 'start',
+                    config: getConfig()
+                }));
+            };
+
+            socket.onmessage = (event) => {
+                let msg;
+                try {
+                    msg = JSON.parse(event.data);
+                } catch {
+                    return;
+                }
+
+                if (msg.type === 'status') {
+                    setStatus('streaming', msg.payload);
+                    appendMessage(escapeHtml(msg.payload), 'msg-status');
+                } else if (msg.type === 'error') {
+                    const text = msg.error || msg.payload || 'Unknown error';
+                    setStatus('error', text);
+                    appendMessage(escapeHtml(text), 'msg-error');
+                } else if (msg.type === 'record') {
+                    setStatus('streaming', 'Receiving messages...');
+                    const ts = msg.timestamp ? new Date(msg.timestamp).toISOString() : '—';
+                    appendMessage(
+                        `<div class="record-meta">partition=${msg.partition ?? '—'} offset=${msg.offset ?? '—'} key=${escapeHtml(msg.key ?? 'null')} @ ${ts}</div>` +
+                        `<div class="record-payload">${escapeHtml(msg.payload ?? '')}</div>`,
+                        'msg-record'
+                    );
+                }
+            };
+
+            socket.onerror = () => {
+                setStatus('error', 'WebSocket error');
+            };
+
+            socket.onclose = () => {
+                socket = null;
+                isStreaming = false;
+                updateStreamButton();
+                editConfigBtn.disabled = false;
+                if (configSubmitted) {
+                    streamBtn.disabled = false;
+                }
+                setStatus('', 'Disconnected');
+            };
+        }
+
+        function stopStreaming() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ action: 'stop' }));
+                socket.close();
+            } else if (socket) {
+                socket.close();
+            }
+            isStreaming = false;
+            updateStreamButton();
+            editConfigBtn.disabled = false;
+            setStatus('', 'Streaming stopped');
+        }
+
+        streamBtn.addEventListener('click', () => {
+            if (!configSubmitted || !validateConfig()) return;
+
+            if (isStreaming) {
+                stopStreaming();
+                return;
+            }
+
+            isStreaming = true;
+            updateStreamButton();
+            streamBtn.disabled = false;
+            editConfigBtn.disabled = true;
+            setStatus('connected', 'Connecting...');
+            connectWebSocket();
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        configFields.forEach(field => {
+            field.addEventListener('input', () => {
+                if (!configSubmitted) {
+                    streamBtn.disabled = !bootstrapServers.value.trim() || !topic.value.trim();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
