@@ -267,6 +267,17 @@
             word-break: break-word;
         }
 
+        .config-error {
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            border: 1px solid rgba(239, 68, 68, 0.45);
+            border-radius: 8px;
+            background: rgba(239, 68, 68, 0.12);
+            color: #fca5a5;
+            font-size: 0.875rem;
+            line-height: 1.45;
+        }
+
         .hidden { display: none !important; }
     </style>
 </head>
@@ -303,6 +314,8 @@
                 <strong id="configSummaryTopic"></strong> on <span id="configSummaryServers"></span>
             </div>
 
+            <div id="configError" class="config-error hidden" role="alert"></div>
+
             <div class="actions">
                 <button type="button" id="submitConfigBtn" class="btn-primary">Submit Config</button>
                 <button type="button" id="editConfigBtn" class="btn-secondary hidden">Edit Config</button>
@@ -327,6 +340,7 @@
         const configSummary = document.getElementById('configSummary');
         const configSummaryTopic = document.getElementById('configSummaryTopic');
         const configSummaryServers = document.getElementById('configSummaryServers');
+        const configError = document.getElementById('configError');
         const bootstrapServers = document.getElementById('bootstrapServers');
         const topic = document.getElementById('topic');
         const additionalProperties = document.getElementById('additionalProperties');
@@ -353,6 +367,16 @@
         function updateConfigSummary() {
             configSummaryTopic.textContent = topic.value.trim();
             configSummaryServers.textContent = bootstrapServers.value.trim();
+        }
+
+        function setConfigError(message) {
+            if (message) {
+                configError.textContent = message;
+                configError.classList.remove('hidden');
+            } else {
+                configError.textContent = '';
+                configError.classList.add('hidden');
+            }
         }
 
         function setConfigReadonly(readonly) {
@@ -399,17 +423,59 @@
             return true;
         }
 
-        submitConfigBtn.addEventListener('click', () => {
-            if (!validateConfig()) return;
-            configSubmitted = true;
-            setConfigReadonly(true);
-            setStatus('', 'Config saved — ready to stream');
+        submitConfigBtn.addEventListener('click', async () => {
+            if (!validateConfig() || configSubmitted) return;
+
+            const originalLabel = submitConfigBtn.textContent;
+            submitConfigBtn.disabled = true;
+            submitConfigBtn.textContent = 'Checking...';
+            setConfigError('');
+            setStatus('connected', 'Checking Kafka connectivity...');
+
+            try {
+                const response = await fetch('/api/config/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(getConfig())
+                });
+
+                let result;
+                try {
+                    result = await response.json();
+                } catch {
+                    const error = 'Invalid response from server';
+                    setConfigError(error);
+                    setStatus('error', error);
+                    return;
+                }
+
+                if (!response.ok || !result.valid) {
+                    const error = result.error || 'Failed to validate Kafka configuration';
+                    setConfigError(error);
+                    setStatus('error', error);
+                    return;
+                }
+
+                configSubmitted = true;
+                setConfigReadonly(true);
+                setConfigError('');
+                setStatus('', result.message || 'Config saved — ready to stream');
+                appendMessage(escapeHtml(result.message), 'msg-status');
+            } catch {
+                const error = 'Could not reach the server';
+                setConfigError(error);
+                setStatus('error', error);
+            } finally {
+                submitConfigBtn.disabled = false;
+                submitConfigBtn.textContent = originalLabel;
+            }
         });
 
         editConfigBtn.addEventListener('click', () => {
             if (isStreaming) return;
             configSubmitted = false;
             setConfigReadonly(false);
+            setConfigError('');
             setStatus('', 'Editing configuration');
         });
 
@@ -516,6 +582,7 @@
             field.addEventListener('input', () => {
                 if (!configSubmitted) {
                     streamBtn.disabled = !bootstrapServers.value.trim() || !topic.value.trim();
+                    setConfigError('');
                 }
             });
         });
