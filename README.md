@@ -8,10 +8,52 @@ A reactive Spring Boot application that consumes messages from a single Kafka to
 - Reactor Kafka (`reactor-kafka`)
 - WebSocket for browser streaming
 
+## Prerequisites
+
+### Install Maven (macOS)
+
+Install Maven globally with Homebrew:
+
+```bash
+brew install maven
+```
+
+Verify the install:
+
+```bash
+mvn -version
+```
+
+You should see Maven and Java version details in the output.
+
+### Maven Wrapper (`mvnw`)
+
+`mvnw` is not installed globally. It is a project-local script that pins a Maven version for the repo.
+
+If this project does not yet include `mvnw`, generate it from the project root (requires Maven installed first):
+
+```bash
+cd kafka-browser-consumer
+mvn wrapper:wrapper
+chmod +x mvnw
+```
+
+That creates `mvnw`, `mvnw.cmd`, and files under `.mvn/wrapper/`. Commit those files so others can build without installing Maven.
+
+After that, use `./mvnw` instead of `mvn` in the commands below.
+
 ## Run
+
+With the Maven Wrapper:
 
 ```bash
 ./mvnw spring-boot:run
+```
+
+Or with a globally installed Maven:
+
+```bash
+mvn spring-boot:run
 ```
 
 Open [http://localhost:8080](http://localhost:8080).
