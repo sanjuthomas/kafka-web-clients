@@ -2,6 +2,10 @@
 
 Connect to a Kafka topic and produce and consume messages from your browser.
 
+## Dataflow
+
+![Kafka Web Clients dataflow](docs/dataflow-mindmap.png)
+
 ## Features
 
 - Connect to a Kafka cluster and topic from the web UI
