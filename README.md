@@ -1,15 +1,12 @@
 # Kafka Web Clients
 
-A reactive Spring Boot app for producing and consuming Kafka messages from the browser. Configure a cluster once, stream records live over WebSocket, and send test messages from the same page.
-
-Repository: https://github.com/sanjuthomas/kafka-web-clients
+Connect to a Kafka topic and produce and consume messages from your browser.
 
 ## Features
 
-- **Consumer** — reactive Kafka consumer streams records to the browser in real time
-- **Producer** — send test messages to the configured topic without leaving the UI
-- **Config validation** — checks broker connectivity and topic existence before streaming
-- **Collapsible config** — configuration collapses after submit to maximize space for messages
+- Connect to a Kafka cluster and topic from the web UI
+- Produce messages to the topic
+- Consume messages from the topic in real time
 
 ## Stack
 
@@ -26,8 +23,6 @@ Repository: https://github.com/sanjuthomas/kafka-web-clients
 ## Get started
 
 ```bash
-git clone https://github.com/sanjuthomas/kafka-web-clients.git
-cd kafka-web-clients
 mvn spring-boot:run
 ```
 
