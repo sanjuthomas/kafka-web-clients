@@ -1,8 +1,8 @@
-package com.example.kafkabrowser.handler;
+package com.example.kafkawebclients.handler;
 
-import com.example.kafkabrowser.model.StreamConfig;
-import com.example.kafkabrowser.model.WebSocketMessage;
-import com.example.kafkabrowser.service.KafkaStreamService;
+import com.example.kafkawebclients.model.StreamConfig;
+import com.example.kafkawebclients.model.WebSocketMessage;
+import com.example.kafkawebclients.service.KafkaStreamService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;

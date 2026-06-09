@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kafka Browser Consumer</title>
+    <title>Kafka Web Clients</title>
     <style>
         :root {
             --bg: #0f1419;
@@ -108,6 +108,20 @@
 
         #streamSection .status-bar {
             flex-shrink: 0;
+            margin-bottom: 0;
+        }
+
+        .stream-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .stream-toolbar .actions {
+            margin-left: auto;
         }
 
         label {
@@ -278,14 +292,56 @@
             line-height: 1.45;
         }
 
+        #producerSection {
+            flex-shrink: 0;
+        }
+
+        #producerSection textarea {
+            min-height: 72px;
+        }
+
+        #configSection .actions {
+            justify-content: flex-end;
+        }
+
+        #producerSection .actions {
+            justify-content: flex-end;
+        }
+
+        .producer-feedback {
+            margin-bottom: 0.75rem;
+            padding: 0.65rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            line-height: 1.45;
+        }
+
+        .producer-success {
+            border: 1px solid rgba(34, 197, 94, 0.45);
+            background: rgba(34, 197, 94, 0.12);
+            color: #86efac;
+        }
+
+        .field-inline {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 720px) {
+            .field-inline {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
     <div class="container" id="appContainer">
         <header>
-            <h1>Kafka Browser Consumer</h1>
-            <p>Configure a Kafka cluster and topic, then stream messages live to your browser.</p>
+            <h1>Kafka Web Clients</h1>
+            <p>Configure a Kafka cluster and topic, produce test messages, and stream records live in your browser.</p>
         </header>
 
         <section class="card" id="configSection">
@@ -319,15 +375,37 @@
             <div class="actions">
                 <button type="button" id="submitConfigBtn" class="btn-primary">Submit Config</button>
                 <button type="button" id="editConfigBtn" class="btn-secondary hidden">Edit Config</button>
-                <button type="button" id="streamBtn" class="btn-primary" disabled>Start Streaming</button>
+            </div>
+        </section>
+
+        <section class="card hidden" id="producerSection">
+            <h2>Producer</h2>
+            <div class="field-inline">
+                <div class="field">
+                    <label for="messageKey">Message Key (optional)</label>
+                    <input type="text" id="messageKey" placeholder="user-123">
+                </div>
+                <div class="field">
+                    <label for="messageValue">Message</label>
+                    <textarea id="messageValue" placeholder='{"event":"test"}'></textarea>
+                </div>
+            </div>
+            <div id="producerFeedback" class="producer-feedback hidden" role="status"></div>
+            <div class="actions">
+                <button type="button" id="sendMessageBtn" class="btn-primary">Send Message</button>
             </div>
         </section>
 
         <section class="card" id="streamSection">
             <h2>Live Stream</h2>
-            <div class="status-bar">
-                <span class="status-dot" id="statusDot"></span>
-                <span id="statusText">Idle</span>
+            <div class="stream-toolbar">
+                <div class="status-bar">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Idle</span>
+                </div>
+                <div class="actions">
+                    <button type="button" id="streamBtn" class="btn-primary hidden" disabled>Start Streaming</button>
+                </div>
             </div>
             <div id="stream-output"></div>
         </section>
@@ -347,6 +425,11 @@
         const submitConfigBtn = document.getElementById('submitConfigBtn');
         const editConfigBtn = document.getElementById('editConfigBtn');
         const streamBtn = document.getElementById('streamBtn');
+        const producerSection = document.getElementById('producerSection');
+        const messageKey = document.getElementById('messageKey');
+        const messageValue = document.getElementById('messageValue');
+        const producerFeedback = document.getElementById('producerFeedback');
+        const sendMessageBtn = document.getElementById('sendMessageBtn');
         const streamOutput = document.getElementById('stream-output');
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
@@ -379,14 +462,35 @@
             }
         }
 
+        function setProducerVisible(visible) {
+            producerSection.classList.toggle('hidden', !visible);
+        }
+
+        function setProducerFeedback(message, type) {
+            if (!message) {
+                producerFeedback.textContent = '';
+                producerFeedback.className = 'producer-feedback hidden';
+                return;
+            }
+
+            producerFeedback.textContent = message;
+            producerFeedback.className = 'producer-feedback ' + (type === 'success' ? 'producer-success' : 'config-error');
+            producerFeedback.classList.remove('hidden');
+        }
+
         function setConfigReadonly(readonly) {
             configFields.forEach(field => field.readOnly = readonly);
             submitConfigBtn.classList.toggle('hidden', readonly);
             editConfigBtn.classList.toggle('hidden', !readonly);
+            streamBtn.classList.toggle('hidden', !readonly);
             streamBtn.disabled = !readonly || !bootstrapServers.value.trim() || !topic.value.trim();
+            sendMessageBtn.disabled = !readonly;
             setConfigCollapsed(readonly);
+            setProducerVisible(readonly);
             if (readonly) {
                 updateConfigSummary();
+            } else {
+                setProducerFeedback('');
             }
         }
 
@@ -476,7 +580,56 @@
             configSubmitted = false;
             setConfigReadonly(false);
             setConfigError('');
+            setProducerFeedback('');
             setStatus('', 'Editing configuration');
+        });
+
+        sendMessageBtn.addEventListener('click', async () => {
+            if (!configSubmitted || !validateConfig()) return;
+
+            const payload = messageValue.value;
+            if (!payload.trim()) {
+                setProducerFeedback('Message payload is required', 'error');
+                return;
+            }
+
+            const originalLabel = sendMessageBtn.textContent;
+            sendMessageBtn.disabled = true;
+            sendMessageBtn.textContent = 'Sending...';
+            setProducerFeedback('');
+
+            try {
+                const response = await fetch('/api/produce', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...getConfig(),
+                        key: messageKey.value.trim(),
+                        payload
+                    })
+                });
+
+                let result;
+                try {
+                    result = await response.json();
+                } catch {
+                    setProducerFeedback('Invalid response from server', 'error');
+                    return;
+                }
+
+                if (!response.ok || !result.success) {
+                    setProducerFeedback(result.error || 'Failed to send message', 'error');
+                    return;
+                }
+
+                setProducerFeedback(result.message, 'success');
+                appendMessage(escapeHtml(result.message), 'msg-status');
+            } catch {
+                setProducerFeedback('Could not reach the server', 'error');
+            } finally {
+                sendMessageBtn.disabled = false;
+                sendMessageBtn.textContent = originalLabel;
+            }
         });
 
         function updateStreamButton() {
@@ -581,7 +734,6 @@
         configFields.forEach(field => {
             field.addEventListener('input', () => {
                 if (!configSubmitted) {
-                    streamBtn.disabled = !bootstrapServers.value.trim() || !topic.value.trim();
                     setConfigError('');
                 }
             });

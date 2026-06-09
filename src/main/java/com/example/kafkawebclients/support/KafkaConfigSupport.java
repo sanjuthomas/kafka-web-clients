@@ -1,9 +1,11 @@
-package com.example.kafkabrowser.support;
+package com.example.kafkawebclients.support;
 
-import com.example.kafkabrowser.model.StreamConfig;
+import com.example.kafkawebclients.model.StreamConfig;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -16,7 +18,7 @@ public class KafkaConfigSupport {
 
     public Map<String, Object> buildConsumerProperties(StreamConfig config) {
         Map<String, Object> props = buildBaseProperties(config);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "kafka-browser-consumer-" + UUID.randomUUID());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "kafka-web-clients-" + UUID.randomUUID());
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
@@ -24,9 +26,18 @@ public class KafkaConfigSupport {
         return props;
     }
 
+    public Map<String, Object> buildProducerProperties(StreamConfig config) {
+        Map<String, Object> props = buildBaseProperties(config);
+        props.put(ProducerConfig.CLIENT_ID_CONFIG, "kafka-web-clients-producer-" + UUID.randomUUID());
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        return props;
+    }
+
     public Map<String, Object> buildAdminProperties(StreamConfig config) {
         Map<String, Object> props = buildBaseProperties(config);
-        props.put(AdminClientConfig.CLIENT_ID_CONFIG, "kafka-browser-connectivity-" + UUID.randomUUID());
+        props.put(AdminClientConfig.CLIENT_ID_CONFIG, "kafka-web-clients-connectivity-" + UUID.randomUUID());
         props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 10_000);
         props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, 10_000);
         return props;

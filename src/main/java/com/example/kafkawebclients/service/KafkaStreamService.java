@@ -1,8 +1,8 @@
-package com.example.kafkabrowser.service;
+package com.example.kafkawebclients.service;
 
-import com.example.kafkabrowser.model.StreamConfig;
-import com.example.kafkabrowser.model.WebSocketMessage;
-import com.example.kafkabrowser.support.KafkaConfigSupport;
+import com.example.kafkawebclients.model.StreamConfig;
+import com.example.kafkawebclients.model.WebSocketMessage;
+import com.example.kafkawebclients.support.KafkaConfigSupport;
 import org.springframework.stereotype.Service;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;

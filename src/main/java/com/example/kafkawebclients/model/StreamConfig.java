@@ -1,4 +1,4 @@
-package com.example.kafkabrowser.model;
+package com.example.kafkawebclients.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

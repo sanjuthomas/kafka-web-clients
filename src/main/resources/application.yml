@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: kafka-browser-consumer
+    name: kafka-web-clients
 
 logging:
   level:

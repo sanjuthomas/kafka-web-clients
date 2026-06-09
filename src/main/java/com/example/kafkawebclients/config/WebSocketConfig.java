@@ -1,6 +1,6 @@
-package com.example.kafkabrowser.config;
+package com.example.kafkawebclients.config;
 
-import com.example.kafkabrowser.handler.KafkaStreamWebSocketHandler;
+import com.example.kafkawebclients.handler.KafkaStreamWebSocketHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;

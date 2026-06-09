@@ -1,8 +1,8 @@
-package com.example.kafkabrowser.controller;
+package com.example.kafkawebclients.controller;
 
-import com.example.kafkabrowser.model.ConfigValidationResult;
-import com.example.kafkabrowser.model.StreamConfig;
-import com.example.kafkabrowser.service.KafkaConnectivityService;
+import com.example.kafkawebclients.model.ConfigValidationResult;
+import com.example.kafkawebclients.model.StreamConfig;
+import com.example.kafkawebclients.service.KafkaConnectivityService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;

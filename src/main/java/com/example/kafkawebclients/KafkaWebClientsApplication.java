@@ -1,12 +1,12 @@
-package com.example.kafkabrowser;
+package com.example.kafkawebclients;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class KafkaBrowserConsumerApplication {
+public class KafkaWebClientsApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(KafkaBrowserConsumerApplication.class, args);
+        SpringApplication.run(KafkaWebClientsApplication.class, args);
     }
 }

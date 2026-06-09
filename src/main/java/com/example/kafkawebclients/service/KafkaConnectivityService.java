@@ -1,8 +1,8 @@
-package com.example.kafkabrowser.service;
+package com.example.kafkawebclients.service;
 
-import com.example.kafkabrowser.model.ConfigValidationResult;
-import com.example.kafkabrowser.model.StreamConfig;
-import com.example.kafkabrowser.support.KafkaConfigSupport;
+import com.example.kafkawebclients.model.ConfigValidationResult;
+import com.example.kafkawebclients.model.StreamConfig;
+import com.example.kafkawebclients.support.KafkaConfigSupport;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.ClusterAuthorizationException;
