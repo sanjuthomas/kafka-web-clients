@@ -138,7 +138,7 @@ Server → client:
 ## Project layout
 
 ```
-src/main/java/com/example/kafkawebclients/
+src/main/java/com/sanjuthomas/kafkawebclients/
   controller/   REST endpoints (config validation, produce)
   handler/      WebSocket streaming handler
   service/      Kafka consumer, producer, and connectivity services

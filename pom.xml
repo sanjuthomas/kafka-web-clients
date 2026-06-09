@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.example</groupId>
+    <groupId>com.sanjuthomas</groupId>
     <artifactId>kafka-web-clients</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>kafka-web-clients</name>
@@ -96,8 +96,8 @@
                                 </rule>
                             </rules>
                             <excludes>
-                                <exclude>com/example/kafkawebclients/KafkaWebClientsApplication*</exclude>
-                                <exclude>com/example/kafkawebclients/support/Default*</exclude>
+                                <exclude>com/sanjuthomas/kafkawebclients/KafkaWebClientsApplication*</exclude>
+                                <exclude>com/sanjuthomas/kafkawebclients/support/Default*</exclude>
                             </excludes>
                         </configuration>
                     </execution>
