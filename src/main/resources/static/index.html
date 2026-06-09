@@ -124,6 +124,23 @@
             margin-left: auto;
         }
 
+        .offset-reset-field {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .offset-reset-field label {
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .offset-reset-field select {
+            width: auto;
+            min-width: 7.5rem;
+        }
+
         label {
             display: block;
             margin-bottom: 0.35rem;
@@ -131,7 +148,7 @@
             font-weight: 500;
         }
 
-        input, textarea {
+        input, textarea, select {
             width: 100%;
             padding: 0.65rem 0.75rem;
             border: 1px solid var(--border);
@@ -142,12 +159,17 @@
             transition: border-color 0.15s;
         }
 
-        input:focus, textarea:focus {
+        input:focus, textarea:focus, select:focus {
             outline: none;
             border-color: var(--accent);
         }
 
         input:read-only, textarea:read-only {
+            opacity: 0.85;
+            cursor: default;
+        }
+
+        select:disabled {
             opacity: 0.85;
             cursor: default;
         }
@@ -304,6 +326,46 @@
             justify-content: flex-end;
         }
 
+        .edit-config-wrap {
+            position: relative;
+            display: inline-flex;
+        }
+
+        .edit-config-wrap.blocked {
+            cursor: not-allowed;
+        }
+
+        .edit-config-wrap.blocked button:disabled {
+            pointer-events: none;
+        }
+
+        .edit-config-tooltip {
+            position: absolute;
+            bottom: calc(100% + 0.5rem);
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            background: #111827;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            white-space: nowrap;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.15s, visibility 0.15s;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .edit-config-wrap.blocked:hover .edit-config-tooltip,
+        .edit-config-wrap.blocked.show-tooltip .edit-config-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
         #producerSection .actions {
             justify-content: flex-end;
         }
@@ -374,7 +436,10 @@
 
             <div class="actions">
                 <button type="button" id="submitConfigBtn" class="btn-primary">Submit Config</button>
-                <button type="button" id="editConfigBtn" class="btn-secondary hidden">Edit Config</button>
+                <span class="edit-config-wrap hidden" id="editConfigWrap">
+                    <button type="button" id="editConfigBtn" class="btn-secondary">Edit Config</button>
+                    <span class="edit-config-tooltip" id="editConfigTooltip" role="tooltip">Stop streaming before you can edit the configuration.</span>
+                </span>
             </div>
         </section>
 
@@ -403,7 +468,15 @@
                     <span class="status-dot" id="statusDot"></span>
                     <span id="statusText">Idle</span>
                 </div>
+                <div class="offset-reset-field hidden" id="offsetResetField">
+                    <label for="autoOffsetReset">Start from</label>
+                    <select id="autoOffsetReset" disabled>
+                        <option value="latest" selected>Latest</option>
+                        <option value="earliest">Earliest</option>
+                    </select>
+                </div>
                 <div class="actions">
+                    <button type="button" id="clearStreamBtn" class="btn-secondary">Clear Console</button>
                     <button type="button" id="streamBtn" class="btn-primary hidden" disabled>Start Streaming</button>
                 </div>
             </div>
@@ -423,8 +496,12 @@
         const topic = document.getElementById('topic');
         const additionalProperties = document.getElementById('additionalProperties');
         const submitConfigBtn = document.getElementById('submitConfigBtn');
+        const editConfigWrap = document.getElementById('editConfigWrap');
         const editConfigBtn = document.getElementById('editConfigBtn');
         const streamBtn = document.getElementById('streamBtn');
+        const clearStreamBtn = document.getElementById('clearStreamBtn');
+        const offsetResetField = document.getElementById('offsetResetField');
+        const autoOffsetReset = document.getElementById('autoOffsetReset');
         const producerSection = document.getElementById('producerSection');
         const messageKey = document.getElementById('messageKey');
         const messageValue = document.getElementById('messageValue');
@@ -437,8 +514,25 @@
         let configSubmitted = false;
         let isStreaming = false;
         let socket = null;
+        let editConfigTooltipTimer = null;
 
         const configFields = [bootstrapServers, topic, additionalProperties];
+
+        function setEditConfigBlocked(blocked) {
+            editConfigWrap.classList.toggle('blocked', blocked);
+            editConfigBtn.disabled = blocked;
+            if (!blocked) {
+                editConfigWrap.classList.remove('show-tooltip');
+            }
+        }
+
+        function showEditConfigTooltip() {
+            editConfigWrap.classList.add('show-tooltip');
+            clearTimeout(editConfigTooltipTimer);
+            editConfigTooltipTimer = setTimeout(() => {
+                editConfigWrap.classList.remove('show-tooltip');
+            }, 2500);
+        }
 
         function setConfigCollapsed(collapsed) {
             configBody.classList.toggle('hidden', collapsed);
@@ -478,13 +572,20 @@
             producerFeedback.classList.remove('hidden');
         }
 
+        function setStreamControlsEnabled(enabled) {
+            streamBtn.classList.toggle('hidden', !enabled);
+            offsetResetField.classList.toggle('hidden', !enabled);
+            streamBtn.disabled = !enabled || !bootstrapServers.value.trim() || !topic.value.trim();
+            autoOffsetReset.disabled = !enabled || isStreaming;
+        }
+
         function setConfigReadonly(readonly) {
             configFields.forEach(field => field.readOnly = readonly);
             submitConfigBtn.classList.toggle('hidden', readonly);
-            editConfigBtn.classList.toggle('hidden', !readonly);
-            streamBtn.classList.toggle('hidden', !readonly);
-            streamBtn.disabled = !readonly || !bootstrapServers.value.trim() || !topic.value.trim();
+            editConfigWrap.classList.toggle('hidden', !readonly);
+            setEditConfigBlocked(isStreaming);
             sendMessageBtn.disabled = !readonly;
+            setStreamControlsEnabled(readonly);
             setConfigCollapsed(readonly);
             setProducerVisible(readonly);
             if (readonly) {
@@ -511,7 +612,8 @@
             return {
                 bootstrapServers: bootstrapServers.value.trim(),
                 topic: topic.value.trim(),
-                additionalProperties: additionalProperties.value.trim()
+                additionalProperties: additionalProperties.value.trim(),
+                autoOffsetReset: autoOffsetReset.value
             };
         }
 
@@ -575,8 +677,18 @@
             }
         });
 
-        editConfigBtn.addEventListener('click', () => {
-            if (isStreaming) return;
+        editConfigWrap.addEventListener('click', () => {
+            if (isStreaming) {
+                showEditConfigTooltip();
+            }
+        });
+
+        editConfigBtn.addEventListener('click', (event) => {
+            if (isStreaming) {
+                event.preventDefault();
+                showEditConfigTooltip();
+                return;
+            }
             configSubmitted = false;
             setConfigReadonly(false);
             setConfigError('');
@@ -636,9 +748,11 @@
             if (isStreaming) {
                 streamBtn.textContent = 'Stop Streaming';
                 streamBtn.className = 'btn-danger';
+                setEditConfigBlocked(true);
             } else {
                 streamBtn.textContent = 'Start Streaming';
                 streamBtn.className = 'btn-primary';
+                setEditConfigBlocked(false);
             }
         }
 
@@ -688,9 +802,8 @@
                 socket = null;
                 isStreaming = false;
                 updateStreamButton();
-                editConfigBtn.disabled = false;
                 if (configSubmitted) {
-                    streamBtn.disabled = false;
+                    setStreamControlsEnabled(true);
                 }
                 setStatus('', 'Disconnected');
             };
@@ -705,9 +818,17 @@
             }
             isStreaming = false;
             updateStreamButton();
-            editConfigBtn.disabled = false;
+            if (configSubmitted) {
+                setStreamControlsEnabled(true);
+            }
             setStatus('', 'Streaming stopped');
         }
+
+        function clearStreamConsole() {
+            streamOutput.innerHTML = '';
+        }
+
+        clearStreamBtn.addEventListener('click', clearStreamConsole);
 
         streamBtn.addEventListener('click', () => {
             if (!configSubmitted || !validateConfig()) return;
@@ -720,7 +841,7 @@
             isStreaming = true;
             updateStreamButton();
             streamBtn.disabled = false;
-            editConfigBtn.disabled = true;
+            autoOffsetReset.disabled = true;
             setStatus('connected', 'Connecting...');
             connectWebSocket();
         });

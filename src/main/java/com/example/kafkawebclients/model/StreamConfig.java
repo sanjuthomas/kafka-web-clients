@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public record StreamConfig(
         String bootstrapServers,
         String topic,
-        String additionalProperties
+        String additionalProperties,
+        String autoOffsetReset
 ) {
 }

@@ -21,7 +21,7 @@ public class KafkaConfigSupport {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "kafka-web-clients-" + UUID.randomUUID());
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, resolveAutoOffsetReset(config));
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         return props;
     }
@@ -75,5 +75,14 @@ public class KafkaConfigSupport {
         for (String name : parsed.stringPropertyNames()) {
             props.put(name, parsed.getProperty(name));
         }
+    }
+
+    public String resolveAutoOffsetReset(StreamConfig config) {
+        if (config.autoOffsetReset() == null || config.autoOffsetReset().isBlank()) {
+            return "latest";
+        }
+
+        String value = config.autoOffsetReset().trim().toLowerCase();
+        return "earliest".equals(value) ? "earliest" : "latest";
     }
 }
