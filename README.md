@@ -1,73 +1,68 @@
 # Kafka Web Clients
 
-A reactive Spring Boot application for producing and consuming Kafka messages from the browser. Stream records live over WebSocket and send test messages without leaving the page.
+A reactive Spring Boot app for producing and consuming Kafka messages from the browser. Configure a cluster once, stream records live over WebSocket, and send test messages from the same page.
+
+Repository: https://github.com/sanjuthomas/kafka-web-clients
+
+## Features
+
+- **Consumer** — reactive Kafka consumer streams records to the browser in real time
+- **Producer** — send test messages to the configured topic without leaving the UI
+- **Config validation** — checks broker connectivity and topic existence before streaming
+- **Collapsible config** — configuration collapses after submit to maximize space for messages
 
 ## Stack
 
-- Spring WebFlux (reactive)
+- Spring WebFlux
 - Reactor Kafka (`reactor-kafka`)
-- WebSocket for browser streaming
+- WebSocket (`/ws/stream`) for live consumption
 - REST API for config validation and message production
 
-## Prerequisites
+## Requirements
 
-### Install Maven (macOS)
+- Java 21+
+- Maven 3.9+ (or generate the Maven Wrapper — see below)
 
-Install Maven globally with Homebrew:
-
-```bash
-brew install maven
-```
-
-Verify the install:
+## Get started
 
 ```bash
-mvn -version
-```
-
-You should see Maven and Java version details in the output.
-
-### Maven Wrapper (`mvnw`)
-
-`mvnw` is not installed globally. It is a project-local script that pins a Maven version for the repo.
-
-If this project does not yet include `mvnw`, generate it from the project root (requires Maven installed first):
-
-```bash
+git clone https://github.com/sanjuthomas/kafka-web-clients.git
 cd kafka-web-clients
-mvn wrapper:wrapper
-chmod +x mvnw
-```
-
-That creates `mvnw`, `mvnw.cmd`, and files under `.mvn/wrapper/`. Commit those files so others can build without installing Maven.
-
-After that, use `./mvnw` instead of `mvn` in the commands below.
-
-## Run
-
-With the Maven Wrapper:
-
-```bash
-./mvnw spring-boot:run
-```
-
-Or with a globally installed Maven:
-
-```bash
 mvn spring-boot:run
 ```
 
 Open [http://localhost:8080](http://localhost:8080).
 
+### Maven Wrapper (`mvnw`)
+
+`mvnw` is not installed globally. It is a project-local script that pins a Maven version for the repo.
+
+If this project does not yet include `mvnw`, generate it from the project root:
+
+```bash
+mvn wrapper:wrapper
+chmod +x mvnw
+./mvnw spring-boot:run
+```
+
+### Install Maven (macOS)
+
+```bash
+brew install maven
+mvn -version
+```
+
 ## Usage
 
-1. Enter **Kafka bootstrap servers** (e.g. `localhost:9092`).
-2. Enter the **topic name** to use.
-3. Optionally add extra client properties (`key=value`, one per line) for SASL/SSL or other cluster settings.
-4. Click **Submit Config** — the app verifies broker connectivity and that the topic exists, then locks the fields. Use **Edit Config** to change them (only while not streaming).
-5. Click **Start Streaming** — opens a WebSocket, connects a reactive Kafka consumer, and pushes each record to the page as it arrives.
-6. Use the **Producer** panel to send test messages to the same topic while you watch the stream.
-7. Click **Stop Streaming** — stops the consumer and closes the WebSocket.
+The UI is split into three panes: **Configuration**, **Producer**, and **Live Stream**.
+
+1. In **Configuration**, enter **Kafka bootstrap servers** (e.g. `localhost:9092`), the **topic name**, and optional client properties (`key=value`, one per line) for SASL/SSL or other settings.
+2. Click **Submit Config**. The app validates broker connectivity and that the topic exists. On success, the config form collapses and the Producer pane appears.
+3. In **Live Stream**, click **Start Streaming** to open a WebSocket consumer and display incoming records.
+4. In **Producer**, enter an optional message key and payload, then click **Send Message** to publish test records to the same topic.
+5. Click **Stop Streaming** in the Live Stream pane to disconnect the consumer.
+
+Use **Edit Config** (Configuration pane) to change settings when not streaming.
 
 ## REST API
 
@@ -76,10 +71,22 @@ Open [http://localhost:8080](http://localhost:8080).
 `POST /api/config/validate`
 
 ```json
-{ "bootstrapServers": "localhost:9092", "topic": "my-topic", "additionalProperties": "" }
+{
+  "bootstrapServers": "localhost:9092",
+  "topic": "my-topic",
+  "additionalProperties": ""
+}
 ```
 
-Returns `{ "valid": true, "message": "..." }` or `{ "valid": false, "error": "..." }`.
+Response:
+
+```json
+{ "valid": true, "message": "Connected to Kafka. Topic 'my-topic' exists with 1 partition(s)." }
+```
+
+```json
+{ "valid": false, "error": "Could not connect to Kafka at localhost:9092. Check that the broker is running and reachable." }
+```
 
 ### Produce message
 
@@ -95,9 +102,24 @@ Returns `{ "valid": true, "message": "..." }` or `{ "valid": false, "error": "..
 }
 ```
 
-Returns `{ "success": true, "message": "...", "partition": 0, "offset": 42 }` or `{ "success": false, "error": "..." }`.
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Message sent to partition 0 at offset 42.",
+  "partition": 0,
+  "offset": 42
+}
+```
+
+```json
+{ "success": false, "error": "Message payload is required" }
+```
 
 ## WebSocket protocol
+
+Endpoint: `ws://localhost:8080/ws/stream`
 
 Client → server:
 
@@ -113,3 +135,19 @@ Server → client:
 { "type": "record", "key": "...", "payload": "...", "partition": 0, "offset": 42, "timestamp": 1710000000000 }
 { "type": "error", "error": "..." }
 ```
+
+## Project layout
+
+```
+src/main/java/com/example/kafkawebclients/
+  controller/   REST endpoints (config validation, produce)
+  handler/      WebSocket streaming handler
+  service/      Kafka consumer, producer, and connectivity services
+  support/      Shared Kafka client property builder
+  model/        Request/response and WebSocket message types
+src/main/resources/static/index.html   Browser UI
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
