@@ -2,7 +2,7 @@ package com.example.kafkawebclients.controller;
 
 import com.example.kafkawebclients.model.ProduceRequest;
 import com.example.kafkawebclients.model.ProduceResult;
-import com.example.kafkawebclients.service.KafkaProducerService;
+import com.example.kafkawebclients.service.KafkaProducerOperations;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,9 +13,9 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api/produce")
 public class ProducerController {
 
-    private final KafkaProducerService kafkaProducerService;
+    private final KafkaProducerOperations kafkaProducerService;
 
-    public ProducerController(KafkaProducerService kafkaProducerService) {
+    public ProducerController(KafkaProducerOperations kafkaProducerService) {
         this.kafkaProducerService = kafkaProducerService;
     }
 

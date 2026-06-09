@@ -3,6 +3,7 @@ package com.example.kafkawebclients.service;
 import com.example.kafkawebclients.model.ProduceRequest;
 import com.example.kafkawebclients.model.ProduceResult;
 import com.example.kafkawebclients.support.KafkaConfigSupport;
+import com.example.kafkawebclients.support.KafkaSenderFactory;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -12,12 +13,14 @@ import reactor.kafka.sender.SenderOptions;
 import reactor.kafka.sender.SenderRecord;
 
 @Service
-public class KafkaProducerService {
+public class KafkaProducerService implements KafkaProducerOperations {
 
     private final KafkaConfigSupport kafkaConfigSupport;
+    private final KafkaSenderFactory kafkaSenderFactory;
 
-    public KafkaProducerService(KafkaConfigSupport kafkaConfigSupport) {
+    public KafkaProducerService(KafkaConfigSupport kafkaConfigSupport, KafkaSenderFactory kafkaSenderFactory) {
         this.kafkaConfigSupport = kafkaConfigSupport;
+        this.kafkaSenderFactory = kafkaSenderFactory;
     }
 
     public Mono<ProduceResult> produce(ProduceRequest request) {
@@ -46,7 +49,7 @@ public class KafkaProducerService {
         SenderRecord<String, String, String> senderRecord = SenderRecord.create(producerRecord, "browser-produce");
 
         return Mono.fromCallable(() -> {
-                    KafkaSender<String, String> sender = KafkaSender.create(senderOptions);
+                    KafkaSender<String, String> sender = kafkaSenderFactory.create(senderOptions);
                     try {
                         var result = sender.send(Mono.just(senderRecord)).blockFirst();
                         if (result == null) {

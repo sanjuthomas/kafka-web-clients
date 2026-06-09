@@ -2,7 +2,7 @@ package com.example.kafkawebclients.handler;
 
 import com.example.kafkawebclients.model.StreamConfig;
 import com.example.kafkawebclients.model.WebSocketMessage;
-import com.example.kafkawebclients.service.KafkaStreamService;
+import com.example.kafkawebclients.service.KafkaStreamOperations;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
@@ -18,10 +18,10 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 public class KafkaStreamWebSocketHandler implements WebSocketHandler {
 
-    private final KafkaStreamService kafkaStreamService;
+    private final KafkaStreamOperations kafkaStreamService;
     private final ObjectMapper objectMapper;
 
-    public KafkaStreamWebSocketHandler(KafkaStreamService kafkaStreamService, ObjectMapper objectMapper) {
+    public KafkaStreamWebSocketHandler(KafkaStreamOperations kafkaStreamService, ObjectMapper objectMapper) {
         this.kafkaStreamService = kafkaStreamService;
         this.objectMapper = objectMapper;
     }

@@ -3,6 +3,7 @@ package com.example.kafkawebclients.service;
 import com.example.kafkawebclients.model.StreamConfig;
 import com.example.kafkawebclients.model.WebSocketMessage;
 import com.example.kafkawebclients.support.KafkaConfigSupport;
+import com.example.kafkawebclients.support.KafkaReceiverFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
@@ -16,12 +17,14 @@ import java.util.Collections;
 import java.util.Map;
 
 @Service
-public class KafkaStreamService {
+public class KafkaStreamService implements KafkaStreamOperations {
 
     private final KafkaConfigSupport kafkaConfigSupport;
+    private final KafkaReceiverFactory kafkaReceiverFactory;
 
-    public KafkaStreamService(KafkaConfigSupport kafkaConfigSupport) {
+    public KafkaStreamService(KafkaConfigSupport kafkaConfigSupport, KafkaReceiverFactory kafkaReceiverFactory) {
         this.kafkaConfigSupport = kafkaConfigSupport;
+        this.kafkaReceiverFactory = kafkaReceiverFactory;
     }
 
     public Flux<WebSocketMessage> startStreaming(StreamConfig config, Sinks.Many<WebSocketMessage> controlSink) {
@@ -42,7 +45,7 @@ public class KafkaStreamService {
                         controlSink.tryEmitNext(WebSocketMessage.status(
                                 "Revoked partitions: " + partitions.size())));
 
-        KafkaReceiver<String, String> receiver = KafkaReceiver.create(receiverOptions);
+        KafkaReceiver<String, String> receiver = kafkaReceiverFactory.create(receiverOptions);
 
         return receiver.receive()
                 .doOnSubscribe(sub -> controlSink.tryEmitNext(WebSocketMessage.status(

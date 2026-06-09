@@ -2,8 +2,9 @@ package com.example.kafkawebclients.service;
 
 import com.example.kafkawebclients.model.ConfigValidationResult;
 import com.example.kafkawebclients.model.StreamConfig;
+import com.example.kafkawebclients.support.AdminClientFacade;
+import com.example.kafkawebclients.support.AdminClientFacadeFactory;
 import com.example.kafkawebclients.support.KafkaConfigSupport;
-import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.ClusterAuthorizationException;
 import org.apache.kafka.common.errors.InvalidTopicException;
@@ -16,20 +17,23 @@ import reactor.core.scheduler.Schedulers;
 
 import java.net.ConnectException;
 import java.net.UnknownHostException;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 @Service
-public class KafkaConnectivityService {
+public class KafkaConnectivityService implements KafkaConnectivityOperations {
 
     private static final int CONNECT_TIMEOUT_SECONDS = 10;
 
     private final KafkaConfigSupport kafkaConfigSupport;
+    private final AdminClientFacadeFactory adminClientFacadeFactory;
 
-    public KafkaConnectivityService(KafkaConfigSupport kafkaConfigSupport) {
+    public KafkaConnectivityService(
+            KafkaConfigSupport kafkaConfigSupport,
+            AdminClientFacadeFactory adminClientFacadeFactory
+    ) {
         this.kafkaConfigSupport = kafkaConfigSupport;
+        this.adminClientFacadeFactory = adminClientFacadeFactory;
     }
 
     public Mono<ConfigValidationResult> validate(StreamConfig config) {
@@ -56,16 +60,10 @@ public class KafkaConnectivityService {
         String bootstrapServers = config.bootstrapServers().trim();
         String topic = config.topic().trim();
 
-        try (AdminClient adminClient = AdminClient.create(adminProps)) {
-            adminClient.describeCluster()
-                    .clusterId()
-                    .get(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        try (AdminClientFacade adminClient = adminClientFacadeFactory.create(adminProps)) {
+            adminClient.clusterId();
 
-            var topicDescription = adminClient.describeTopics(Collections.singletonList(topic))
-                    .topicNameValues()
-                    .get(topic)
-                    .get(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            int partitionCount = topicDescription.partitions().size();
+            int partitionCount = adminClient.partitionCount(topic);
 
             return ConfigValidationResult.success(
                     "Connected to Kafka. Topic '" + topic + "' exists with " + partitionCount + " partition(s).");

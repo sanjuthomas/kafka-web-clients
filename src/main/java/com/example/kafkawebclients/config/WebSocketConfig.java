@@ -25,7 +25,7 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
 public class WebSocketConfig implements WebFluxConfigurer {
 
     @Bean
-    public HandlerMapping webSocketHandlerMapping(KafkaStreamWebSocketHandler kafkaStreamWebSocketHandler) {
+    public HandlerMapping webSocketHandlerMapping(WebSocketHandler kafkaStreamWebSocketHandler) {
         Map<String, WebSocketHandler> map = Map.of("/ws/stream", kafkaStreamWebSocketHandler);
         SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
         mapping.setUrlMap(map);
