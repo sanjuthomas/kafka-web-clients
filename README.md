@@ -64,12 +64,6 @@ docker run --rm -p 8080:8080 sanjuthomas/kafka-web-clients:latest
 
 Tagged releases are also published as semver tags (e.g. `1.0.0`) and as the short Git commit SHA.
 
-**Maintainers:** add this repository secret under **Settings → Secrets and variables → Actions**:
-
-| Secret | Description |
-|--------|-------------|
-| `DOCKERHUB_TOKEN` | Docker Hub [access token](https://hub.docker.com/settings/security) for `sanjuthomas` |
-
 ### Maven Wrapper (`mvnw`)
 
 `mvnw` is not installed globally. It is a project-local script that pins a Maven version for the repo.
