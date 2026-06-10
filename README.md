@@ -32,6 +32,44 @@ mvn spring-boot:run
 
 Open [http://localhost:8080](http://localhost:8080).
 
+## Docker
+
+Build and run the app in a container:
+
+```bash
+docker build -t kafka-web-clients .
+docker run --rm -p 8080:8080 kafka-web-clients
+```
+
+Or use Compose:
+
+```bash
+docker compose up --build
+```
+
+Open [http://localhost:8080](http://localhost:8080).
+
+When the app runs in Docker and Kafka runs on your host machine, use `host.docker.internal:9092` as the bootstrap servers in the UI (macOS/Windows). On Linux, use your host IP or run Kafka in the same Docker network.
+
+### Docker Hub
+
+CI publishes an image to Docker Hub on every push to `main` and on version tags (`v*`, e.g. `v1.0.0`).
+
+Pull the latest image:
+
+```bash
+docker pull sanjuthomas/kafka-web-clients:latest
+docker run --rm -p 8080:8080 sanjuthomas/kafka-web-clients:latest
+```
+
+Tagged releases are also published as semver tags (e.g. `1.0.0`) and as the short Git commit SHA.
+
+**Maintainers:** add this repository secret under **Settings → Secrets and variables → Actions**:
+
+| Secret | Description |
+|--------|-------------|
+| `DOCKERHUB_TOKEN` | Docker Hub [access token](https://hub.docker.com/settings/security) for `sanjuthomas` |
+
 ### Maven Wrapper (`mvnw`)
 
 `mvnw` is not installed globally. It is a project-local script that pins a Maven version for the repo.

@@ -1,0 +1,9 @@
+target/
+.git/
+.github/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.DS_Store
