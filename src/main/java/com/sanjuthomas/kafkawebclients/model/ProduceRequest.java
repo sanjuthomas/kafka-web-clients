@@ -11,6 +11,6 @@ public record ProduceRequest(
         String payload
 ) {
     public StreamConfig toStreamConfig() {
-        return new StreamConfig(bootstrapServers, topic, additionalProperties, null);
+        return new StreamConfig(bootstrapServers, topic, additionalProperties, null, null);
     }
 }

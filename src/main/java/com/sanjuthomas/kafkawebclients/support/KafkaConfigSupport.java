@@ -18,7 +18,7 @@ public class KafkaConfigSupport {
 
     public Map<String, Object> buildConsumerProperties(StreamConfig config) {
         Map<String, Object> props = buildBaseProperties(config);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "kafka-web-clients-" + UUID.randomUUID());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, resolveConsumerGroup(config));
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, resolveAutoOffsetReset(config));
@@ -77,12 +77,35 @@ public class KafkaConfigSupport {
         }
     }
 
-    public String resolveAutoOffsetReset(StreamConfig config) {
+    public String resolveConsumerGroup(StreamConfig config) {
+        if (config.consumerGroup() == null || config.consumerGroup().isBlank()) {
+            return "kafka-web-clients-" + UUID.randomUUID();
+        }
+        return config.consumerGroup().trim();
+    }
+
+    public boolean hasNamedConsumerGroup(StreamConfig config) {
+        return config.consumerGroup() != null && !config.consumerGroup().isBlank();
+    }
+
+    public String resolveOffsetReset(StreamConfig config) {
         if (config.autoOffsetReset() == null || config.autoOffsetReset().isBlank()) {
             return "latest";
         }
 
         String value = config.autoOffsetReset().trim().toLowerCase();
-        return "earliest".equals(value) ? "earliest" : "latest";
+        return switch (value) {
+            case "earliest" -> "earliest";
+            case "committed" -> "committed";
+            default -> "latest";
+        };
+    }
+
+    public String resolveAutoOffsetReset(StreamConfig config) {
+        String strategy = resolveOffsetReset(config);
+        if ("committed".equals(strategy)) {
+            return "earliest";
+        }
+        return strategy;
     }
 }

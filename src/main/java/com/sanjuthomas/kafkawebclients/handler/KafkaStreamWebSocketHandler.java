@@ -3,6 +3,7 @@ package com.sanjuthomas.kafkawebclients.handler;
 import com.sanjuthomas.kafkawebclients.model.StreamConfig;
 import com.sanjuthomas.kafkawebclients.model.WebSocketMessage;
 import com.sanjuthomas.kafkawebclients.service.KafkaStreamOperations;
+import com.sanjuthomas.kafkawebclients.support.KafkaConfigSupport;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
@@ -19,10 +20,16 @@ import java.util.concurrent.atomic.AtomicReference;
 public class KafkaStreamWebSocketHandler implements WebSocketHandler {
 
     private final KafkaStreamOperations kafkaStreamService;
+    private final KafkaConfigSupport kafkaConfigSupport;
     private final ObjectMapper objectMapper;
 
-    public KafkaStreamWebSocketHandler(KafkaStreamOperations kafkaStreamService, ObjectMapper objectMapper) {
+    public KafkaStreamWebSocketHandler(
+            KafkaStreamOperations kafkaStreamService,
+            KafkaConfigSupport kafkaConfigSupport,
+            ObjectMapper objectMapper
+    ) {
         this.kafkaStreamService = kafkaStreamService;
+        this.kafkaConfigSupport = kafkaConfigSupport;
         this.objectMapper = objectMapper;
     }
 
@@ -90,6 +97,13 @@ public class KafkaStreamWebSocketHandler implements WebSocketHandler {
 
         if (config.topic() == null || config.topic().isBlank()) {
             outboundSink.tryEmitNext(WebSocketMessage.error("Topic name is required"));
+            return Mono.empty();
+        }
+
+        if ("committed".equals(kafkaConfigSupport.resolveOffsetReset(config))
+                && !kafkaConfigSupport.hasNamedConsumerGroup(config)) {
+            outboundSink.tryEmitNext(WebSocketMessage.error(
+                    "Consumer group is required to resume from committed offset"));
             return Mono.empty();
         }
 

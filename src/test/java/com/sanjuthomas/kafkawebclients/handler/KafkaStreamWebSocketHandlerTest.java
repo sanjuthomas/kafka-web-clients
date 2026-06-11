@@ -1,6 +1,7 @@
 package com.sanjuthomas.kafkawebclients.handler;
 
 import com.sanjuthomas.kafkawebclients.service.KafkaStreamOperations;
+import com.sanjuthomas.kafkawebclients.support.KafkaConfigSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,8 @@ class KafkaStreamWebSocketHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new KafkaStreamWebSocketHandler(kafkaStreamService, new ObjectMapper());
+        handler = new KafkaStreamWebSocketHandler(
+                kafkaStreamService, new KafkaConfigSupport(), new ObjectMapper());
         outboundPayloads.clear();
 
         when(session.send(any())).thenAnswer(invocation -> {
@@ -124,6 +126,18 @@ class KafkaStreamWebSocketHandlerTest {
         StepVerifier.create(handler.handle(session)).verifyComplete();
 
         assertThat(outboundPayloads).anyMatch(payload -> payload.contains("Bootstrap servers are required"));
+    }
+
+    @Test
+    void handleStartWithCommittedOffsetWithoutConsumerGroupReturnsError() {
+        when(session.receive()).thenReturn(Flux.just(textMessage("""
+                {"action":"start","config":{"bootstrapServers":"localhost:9092","topic":"events","additionalProperties":"","autoOffsetReset":"committed"}}
+                """)));
+
+        StepVerifier.create(handler.handle(session)).verifyComplete();
+
+        assertThat(outboundPayloads).anyMatch(payload ->
+                payload.contains("Consumer group is required to resume from committed offset"));
     }
 
     @Test

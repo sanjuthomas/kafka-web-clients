@@ -2,6 +2,7 @@ package com.sanjuthomas.kafkawebclients.config;
 
 import com.sanjuthomas.kafkawebclients.handler.KafkaStreamWebSocketHandler;
 import com.sanjuthomas.kafkawebclients.service.KafkaStreamOperations;
+import com.sanjuthomas.kafkawebclients.support.KafkaConfigSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -38,7 +39,8 @@ class WebSocketConfigTest {
                 return Disposables.single();
             }
         };
-        KafkaStreamWebSocketHandler handler = new KafkaStreamWebSocketHandler(streamOperations, new ObjectMapper());
+        KafkaStreamWebSocketHandler handler = new KafkaStreamWebSocketHandler(
+                streamOperations, new KafkaConfigSupport(), new ObjectMapper());
 
         SimpleUrlHandlerMapping mapping = (SimpleUrlHandlerMapping) config.webSocketHandlerMapping(handler);
         @SuppressWarnings("unchecked")

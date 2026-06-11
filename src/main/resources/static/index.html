@@ -136,9 +136,14 @@
             white-space: nowrap;
         }
 
-        .offset-reset-field select {
+        .offset-reset-field select,
+        .offset-reset-field input {
             width: auto;
             min-width: 7.5rem;
+        }
+
+        .offset-reset-field input {
+            min-width: 10rem;
         }
 
         label {
@@ -468,6 +473,10 @@
                     <span class="status-dot" id="statusDot"></span>
                     <span id="statusText">Idle</span>
                 </div>
+                <div class="offset-reset-field hidden" id="consumerGroupField">
+                    <label for="consumerGroup">Consumer group</label>
+                    <input type="text" id="consumerGroup" placeholder="optional" disabled>
+                </div>
                 <div class="offset-reset-field hidden" id="offsetResetField">
                     <label for="autoOffsetReset">Start from</label>
                     <select id="autoOffsetReset" disabled>
@@ -500,6 +509,8 @@
         const editConfigBtn = document.getElementById('editConfigBtn');
         const streamBtn = document.getElementById('streamBtn');
         const clearStreamBtn = document.getElementById('clearStreamBtn');
+        const consumerGroupField = document.getElementById('consumerGroupField');
+        const consumerGroup = document.getElementById('consumerGroup');
         const offsetResetField = document.getElementById('offsetResetField');
         const autoOffsetReset = document.getElementById('autoOffsetReset');
         const producerSection = document.getElementById('producerSection');
@@ -572,11 +583,42 @@
             producerFeedback.classList.remove('hidden');
         }
 
+        function updateOffsetResetOptions() {
+            const hasGroup = consumerGroup.value.trim().length > 0;
+            const previous = autoOffsetReset.value;
+            autoOffsetReset.innerHTML = '';
+
+            const latest = document.createElement('option');
+            latest.value = 'latest';
+            latest.textContent = 'Latest';
+            autoOffsetReset.appendChild(latest);
+
+            const earliest = document.createElement('option');
+            earliest.value = 'earliest';
+            earliest.textContent = 'Earliest';
+            autoOffsetReset.appendChild(earliest);
+
+            if (hasGroup) {
+                const committed = document.createElement('option');
+                committed.value = 'committed';
+                committed.textContent = 'Committed offset';
+                autoOffsetReset.appendChild(committed);
+            }
+
+            const validValues = Array.from(autoOffsetReset.options).map(option => option.value);
+            autoOffsetReset.value = validValues.includes(previous) ? previous : 'latest';
+        }
+
         function setStreamControlsEnabled(enabled) {
             streamBtn.classList.toggle('hidden', !enabled);
+            consumerGroupField.classList.toggle('hidden', !enabled);
             offsetResetField.classList.toggle('hidden', !enabled);
             streamBtn.disabled = !enabled || !bootstrapServers.value.trim() || !topic.value.trim();
+            consumerGroup.disabled = !enabled || isStreaming;
             autoOffsetReset.disabled = !enabled || isStreaming;
+            if (enabled) {
+                updateOffsetResetOptions();
+            }
         }
 
         function setConfigReadonly(readonly) {
@@ -609,11 +651,13 @@
         }
 
         function getConfig() {
+            const group = consumerGroup.value.trim();
             return {
                 bootstrapServers: bootstrapServers.value.trim(),
                 topic: topic.value.trim(),
                 additionalProperties: additionalProperties.value.trim(),
-                autoOffsetReset: autoOffsetReset.value
+                autoOffsetReset: autoOffsetReset.value,
+                consumerGroup: group || null
             };
         }
 
@@ -841,9 +885,16 @@
             isStreaming = true;
             updateStreamButton();
             streamBtn.disabled = false;
+            consumerGroup.disabled = true;
             autoOffsetReset.disabled = true;
             setStatus('connected', 'Connecting...');
             connectWebSocket();
+        });
+
+        consumerGroup.addEventListener('input', () => {
+            if (!isStreaming) {
+                updateOffsetResetOptions();
+            }
         });
 
         function escapeHtml(text) {

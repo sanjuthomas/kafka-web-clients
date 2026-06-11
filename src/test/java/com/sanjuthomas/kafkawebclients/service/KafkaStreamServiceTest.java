@@ -48,7 +48,7 @@ class KafkaStreamServiceTest {
 
     @Test
     void startStreamingMapsRecordsAndStatusMessages() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest");
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest", null);
         Sinks.Many<WebSocketMessage> controlSink = Sinks.many().unicast().onBackpressureBuffer();
         AtomicBoolean acknowledged = new AtomicBoolean(false);
         ReceiverRecord<String, String> receiverRecord = receiverRecord("key-1", "payload-1", acknowledged);
@@ -69,7 +69,7 @@ class KafkaStreamServiceTest {
 
     @Test
     void startStreamingConfiguresCommitRetryOnReceiverOptions() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest");
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest", null);
         Sinks.Many<WebSocketMessage> controlSink = Sinks.many().unicast().onBackpressureBuffer();
         List<ReceiverOptions<String, String>> capturedOptions = new ArrayList<>();
 
@@ -88,7 +88,7 @@ class KafkaStreamServiceTest {
 
     @Test
     void startStreamingRetriesRetriableKafkaErrors() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest");
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest", null);
         Sinks.Many<WebSocketMessage> controlSink = Sinks.many().unicast().onBackpressureBuffer();
         AtomicBoolean acknowledged = new AtomicBoolean(false);
         ReceiverRecord<String, String> receiverRecord = receiverRecord("key-1", "payload-1", acknowledged);
@@ -116,7 +116,7 @@ class KafkaStreamServiceTest {
 
     @Test
     void startStreamingMapsReceiverErrors() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest");
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest", null);
         Sinks.Many<WebSocketMessage> controlSink = Sinks.many().unicast().onBackpressureBuffer();
         when(kafkaReceiverFactory.create(any())).thenAnswer(invocation -> receiver);
         when(receiver.receive()).thenReturn(Flux.error(new RuntimeException("stream failed")));
@@ -130,8 +130,47 @@ class KafkaStreamServiceTest {
     }
 
     @Test
+    void startStreamingUsesNamedConsumerGroupWhenProvided() {
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest", "my-group");
+        Sinks.Many<WebSocketMessage> controlSink = Sinks.many().unicast().onBackpressureBuffer();
+        List<ReceiverOptions<String, String>> capturedOptions = new ArrayList<>();
+
+        when(kafkaReceiverFactory.create(any())).thenAnswer(invocation -> {
+            capturedOptions.add(invocation.getArgument(0));
+            return receiver;
+        });
+        when(receiver.receive()).thenReturn(Flux.empty());
+
+        StepVerifier.create(service.startStreaming(config, controlSink)).verifyComplete();
+
+        assertThat(capturedOptions).hasSize(1);
+        assertThat(capturedOptions.getFirst().consumerProperties().get("group.id")).isEqualTo("my-group");
+    }
+
+    @Test
+    void startStreamingDoesNotSeekWhenResumingCommittedOffset() {
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "committed", "my-group");
+        Sinks.Many<WebSocketMessage> controlSink = Sinks.many().unicast().onBackpressureBuffer();
+        List<ReceiverOptions<String, String>> capturedOptions = new ArrayList<>();
+        AtomicBoolean seeked = new AtomicBoolean(false);
+
+        when(kafkaReceiverFactory.create(any())).thenAnswer(invocation -> {
+            capturedOptions.add(invocation.getArgument(0));
+            return receiver;
+        });
+        when(receiver.receive()).thenReturn(Flux.empty());
+
+        StepVerifier.create(service.startStreaming(config, controlSink)).verifyComplete();
+
+        ReceiverOptions<String, String> options = capturedOptions.getFirst();
+        options.assignListeners().forEach(listener -> listener.accept(List.of(new FakeReceiverPartition(seeked))));
+
+        assertThat(seeked).isFalse();
+    }
+
+    @Test
     void startStreamingSeeksToBeginningWhenConfigured() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "earliest");
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "earliest", null);
         Sinks.Many<WebSocketMessage> controlSink = Sinks.many().unicast().onBackpressureBuffer();
         List<ReceiverOptions<String, String>> capturedOptions = new ArrayList<>();
         AtomicBoolean seeked = new AtomicBoolean(false);

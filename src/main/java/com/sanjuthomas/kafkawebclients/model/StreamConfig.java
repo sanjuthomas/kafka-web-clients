@@ -7,6 +7,7 @@ public record StreamConfig(
         String bootstrapServers,
         String topic,
         String additionalProperties,
-        String autoOffsetReset
+        String autoOffsetReset,
+        String consumerGroup
 ) {
 }
