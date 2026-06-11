@@ -5,9 +5,10 @@ import com.sanjuthomas.kafkawebclients.service.KafkaStreamOperations;
 import com.sanjuthomas.kafkawebclients.support.KafkaConfigSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.reactive.config.ResourceHandlerRegistry;
 import org.springframework.web.reactive.handler.SimpleUrlHandlerMapping;
-import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAdapter;
 import reactor.core.Disposables;
 import reactor.core.publisher.Flux;
@@ -59,9 +60,13 @@ class WebSocketConfigTest {
     }
 
     @Test
-    void indexRouteServesHtml() {
-        RouterFunction<?> route = config.indexRoute();
+    void addResourceHandlersRegistersClasspathStaticLocation() {
+        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
+        context.refresh();
 
-        assertThat(route).isNotNull();
+        ResourceHandlerRegistry registry = new ResourceHandlerRegistry(context);
+        config.addResourceHandlers(registry);
+
+        assertThat(registry.hasMappingForPattern("/**")).isTrue();
     }
 }

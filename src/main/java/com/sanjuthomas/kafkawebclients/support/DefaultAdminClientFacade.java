@@ -1,6 +1,6 @@
 package com.sanjuthomas.kafkawebclients.support;
 
-import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.Admin;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -9,22 +9,22 @@ public class DefaultAdminClientFacade implements AdminClientFacade {
 
     private static final int CONNECT_TIMEOUT_SECONDS = 10;
 
-    private final AdminClient adminClient;
+    private final Admin admin;
 
-    public DefaultAdminClientFacade(AdminClient adminClient) {
-        this.adminClient = adminClient;
+    public DefaultAdminClientFacade(Admin admin) {
+        this.admin = admin;
     }
 
     @Override
     public String clusterId() throws Exception {
-        return adminClient.describeCluster()
+        return admin.describeCluster()
                 .clusterId()
                 .get(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override
     public int partitionCount(String topic) throws Exception {
-        var topicDescription = adminClient.describeTopics(Collections.singletonList(topic))
+        var topicDescription = admin.describeTopics(Collections.singletonList(topic))
                 .topicNameValues()
                 .get(topic)
                 .get(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -33,6 +33,6 @@ public class DefaultAdminClientFacade implements AdminClientFacade {
 
     @Override
     public void close() {
-        adminClient.close();
+        admin.close();
     }
 }
