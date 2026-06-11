@@ -5,6 +5,7 @@ import com.sanjuthomas.kafkawebclients.model.WebSocketMessage;
 import com.sanjuthomas.kafkawebclients.support.KafkaConfigSupport;
 import com.sanjuthomas.kafkawebclients.support.KafkaReceiverFactory;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.RetriableCommitFailedException;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,9 +20,11 @@ import reactor.kafka.receiver.ReceiverPartition;
 import reactor.kafka.receiver.ReceiverRecord;
 import reactor.test.StepVerifier;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -61,6 +64,53 @@ class KafkaStreamServiceTest {
                 })
                 .verifyComplete();
 
+        assertThat(acknowledged).isTrue();
+    }
+
+    @Test
+    void startStreamingConfiguresCommitRetryOnReceiverOptions() {
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest");
+        Sinks.Many<WebSocketMessage> controlSink = Sinks.many().unicast().onBackpressureBuffer();
+        List<ReceiverOptions<String, String>> capturedOptions = new ArrayList<>();
+
+        when(kafkaReceiverFactory.create(any())).thenAnswer(invocation -> {
+            capturedOptions.add(invocation.getArgument(0));
+            return receiver;
+        });
+        when(receiver.receive()).thenReturn(Flux.empty());
+
+        StepVerifier.create(service.startStreaming(config, controlSink)).verifyComplete();
+
+        assertThat(capturedOptions).hasSize(1);
+        assertThat(capturedOptions.getFirst().commitRetryInterval()).isEqualTo(Duration.ofSeconds(1));
+        assertThat(capturedOptions.getFirst().maxCommitAttempts()).isEqualTo(3_600);
+    }
+
+    @Test
+    void startStreamingRetriesRetriableKafkaErrors() {
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", "latest");
+        Sinks.Many<WebSocketMessage> controlSink = Sinks.many().unicast().onBackpressureBuffer();
+        AtomicBoolean acknowledged = new AtomicBoolean(false);
+        ReceiverRecord<String, String> receiverRecord = receiverRecord("key-1", "payload-1", acknowledged);
+        AtomicInteger receiveAttempts = new AtomicInteger();
+
+        when(kafkaReceiverFactory.create(any())).thenAnswer(invocation -> receiver);
+        when(receiver.receive()).thenAnswer(invocation -> {
+            if (receiveAttempts.getAndIncrement() == 0) {
+                return Flux.error(new RetriableCommitFailedException(
+                        "Offset commit failed with a retriable exception."));
+            }
+            return Flux.just(receiverRecord);
+        });
+
+        StepVerifier.create(service.startStreaming(config, controlSink))
+                .assertNext(message -> {
+                    assertThat(message.type()).isEqualTo("record");
+                    assertThat(message.payload()).isEqualTo("payload-1");
+                })
+                .verifyComplete();
+
+        assertThat(receiveAttempts.get()).isGreaterThanOrEqualTo(2);
         assertThat(acknowledged).isTrue();
     }
 
