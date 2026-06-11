@@ -53,5 +53,6 @@ class ModelFactoryTest {
         assertThat(config.topic()).isEqualTo("events");
         assertThat(config.additionalProperties()).isEqualTo("a=b");
         assertThat(config.autoOffsetReset()).isNull();
+        assertThat(config.consumerGroup()).isNull();
     }
 }

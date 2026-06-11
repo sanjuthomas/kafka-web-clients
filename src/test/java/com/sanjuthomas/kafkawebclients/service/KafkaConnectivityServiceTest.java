@@ -39,18 +39,18 @@ class KafkaConnectivityServiceTest {
                 .assertNext(result -> assertThat(result.error()).isEqualTo("Configuration is required"))
                 .verifyComplete();
 
-        StepVerifier.create(service.validate(new StreamConfig("", "topic", "", null)))
+        StepVerifier.create(service.validate(new StreamConfig("", "topic", "", null, null)))
                 .assertNext(result -> assertThat(result.error()).isEqualTo("Bootstrap servers are required"))
                 .verifyComplete();
 
-        StepVerifier.create(service.validate(new StreamConfig("localhost:9092", "  ", "", null)))
+        StepVerifier.create(service.validate(new StreamConfig("localhost:9092", "  ", "", null, null)))
                 .assertNext(result -> assertThat(result.error()).isEqualTo("Topic name is required"))
                 .verifyComplete();
     }
 
     @Test
     void validateReturnsSuccessWhenTopicExists() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         adminClientFacade.partitionCount = 2;
 
         StepVerifier.create(service.validate(config))
@@ -63,7 +63,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsUnknownTopicToFriendlyError() {
-        StreamConfig config = new StreamConfig("localhost:9092", "missing", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "missing", "", null, null);
         adminClientFacade.partitionCountException = new ExecutionException(new UnknownTopicOrPartitionException());
 
         StepVerifier.create(service.validate(config))
@@ -76,7 +76,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsTimeoutToFriendlyError() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         adminClientFacade.clusterIdException = new TimeoutException();
 
         StepVerifier.create(service.validate(config))
@@ -86,7 +86,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsAuthenticationFailures() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         adminClientFacade.partitionCountException = new ExecutionException(new AuthenticationException("auth failed"));
 
         StepVerifier.create(service.validate(config))
@@ -96,7 +96,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsConnectionRefusedMessage() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         adminClientFacade.partitionCountException = new ExecutionException(
                 new RuntimeException("Connection to node -1 could not be established"));
 
@@ -107,7 +107,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsInterruptedException() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         adminClientFacade.partitionCountException = new InterruptedException();
 
         StepVerifier.create(service.validate(config))
@@ -117,7 +117,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsTopicAuthorizationFailures() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         adminClientFacade.partitionCountException = new ExecutionException(new TopicAuthorizationException("denied"));
 
         StepVerifier.create(service.validate(config))
@@ -127,7 +127,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsClusterAuthorizationFailures() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         adminClientFacade.clusterIdException = new ExecutionException(new ClusterAuthorizationException("denied"));
 
         StepVerifier.create(service.validate(config))
@@ -137,7 +137,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsInvalidTopicFailures() {
-        StreamConfig config = new StreamConfig("localhost:9092", "bad topic", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "bad topic", "", null, null);
         adminClientFacade.partitionCountException = new ExecutionException(new InvalidTopicException("bad topic"));
 
         StepVerifier.create(service.validate(config))
@@ -147,7 +147,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsUnknownHostFailures() {
-        StreamConfig config = new StreamConfig("unknown-host:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("unknown-host:9092", "events", "", null, null);
         adminClientFacade.clusterIdException = new UnknownHostException("unknown-host");
 
         StepVerifier.create(service.validate(config))
@@ -157,7 +157,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsConnectExceptionFailures() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         adminClientFacade.clusterIdException = new ConnectException("connection refused");
 
         StepVerifier.create(service.validate(config))
@@ -169,7 +169,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateMapsSslFailuresFromMessage() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         adminClientFacade.clusterIdException = new RuntimeException("SSL handshake failed");
 
         StepVerifier.create(service.validate(config))
@@ -179,7 +179,7 @@ class KafkaConnectivityServiceTest {
 
     @Test
     void validateClosesAdminClientFacade() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
         AtomicBoolean closed = new AtomicBoolean(false);
         adminClientFacade.onClose = () -> closed.set(true);
 

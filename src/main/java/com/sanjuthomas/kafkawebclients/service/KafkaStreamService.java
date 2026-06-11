@@ -38,7 +38,9 @@ public class KafkaStreamService implements KafkaStreamOperations {
 
     public Flux<WebSocketMessage> startStreaming(StreamConfig config, Sinks.Many<WebSocketMessage> controlSink) {
         Map<String, Object> consumerProps = kafkaConfigSupport.buildConsumerProperties(config);
-        boolean startFromEarliest = "earliest".equals(kafkaConfigSupport.resolveAutoOffsetReset(config));
+        String offsetReset = kafkaConfigSupport.resolveOffsetReset(config);
+        boolean startFromEarliest = "earliest".equals(offsetReset);
+        String consumerGroup = kafkaConfigSupport.resolveConsumerGroup(config);
 
         ReceiverOptions<String, String> receiverOptions = ReceiverOptions.<String, String>create(consumerProps)
                 .commitRetryInterval(COMMIT_RETRY_INTERVAL)
@@ -50,7 +52,7 @@ public class KafkaStreamService implements KafkaStreamOperations {
                     }
                     controlSink.tryEmitNext(WebSocketMessage.status(
                             "Assigned partitions: " + partitions.size()
-                                    + (startFromEarliest ? " (starting from earliest offset)" : "")));
+                                    + partitionAssignHint(offsetReset, consumerGroup)));
                 })
                 .addRevokeListener(partitions ->
                         controlSink.tryEmitNext(WebSocketMessage.status(
@@ -61,8 +63,12 @@ public class KafkaStreamService implements KafkaStreamOperations {
         return Flux.defer(receiver::receive)
                 .doOnSubscribe(sub -> controlSink.tryEmitNext(WebSocketMessage.status(
                         "Connected to Kafka. Consuming from "
-                                + kafkaConfigSupport.resolveAutoOffsetReset(config)
-                                + " on topic '" + config.topic() + "'...")))
+                                + offsetResetLabel(offsetReset)
+                                + " on topic '" + config.topic() + "'"
+                                + (kafkaConfigSupport.hasNamedConsumerGroup(config)
+                                ? " as group '" + consumerGroup + "'"
+                                : "")
+                                + "...")))
                 .map(this::toWebSocketMessage)
                 .retryWhen(Retry.backoff(Long.MAX_VALUE, STREAM_RETRY_MIN_BACKOFF)
                         .maxBackoff(STREAM_RETRY_MAX_BACKOFF)
@@ -78,6 +84,22 @@ public class KafkaStreamService implements KafkaStreamOperations {
                 outputSink::tryEmitNext,
                 error -> outputSink.tryEmitNext(WebSocketMessage.error(error.getMessage()))
         );
+    }
+
+    private static String partitionAssignHint(String offsetReset, String consumerGroup) {
+        return switch (offsetReset) {
+            case "earliest" -> " (starting from earliest offset)";
+            case "committed" -> " (resuming from committed offset as group '" + consumerGroup + "')";
+            default -> "";
+        };
+    }
+
+    private static String offsetResetLabel(String offsetReset) {
+        return switch (offsetReset) {
+            case "earliest" -> "earliest";
+            case "committed" -> "committed offset";
+            default -> "latest";
+        };
     }
 
     private WebSocketMessage toWebSocketMessage(ReceiverRecord<String, String> record) {

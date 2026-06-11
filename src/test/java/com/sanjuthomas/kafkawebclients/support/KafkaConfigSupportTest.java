@@ -18,7 +18,8 @@ class KafkaConfigSupportTest {
                 " localhost:9092 ",
                 "events",
                 "# comment\nsecurity.protocol=SASL_SSL\ninvalid-line\nauto.offset.reset=earliest",
-                "earliest");
+                "earliest",
+                null);
 
         var props = support.buildConsumerProperties(config);
 
@@ -31,7 +32,7 @@ class KafkaConfigSupportTest {
 
     @Test
     void buildProducerPropertiesIncludesSerializersAndClientId() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
 
         var props = support.buildProducerProperties(config);
 
@@ -42,7 +43,7 @@ class KafkaConfigSupportTest {
 
     @Test
     void buildAdminPropertiesIncludesTimeouts() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null);
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", null, null);
 
         var props = support.buildAdminProperties(config);
 
@@ -53,8 +54,8 @@ class KafkaConfigSupportTest {
 
     @Test
     void resolveAutoOffsetResetDefaultsToLatest() {
-        StreamConfig blank = new StreamConfig("localhost:9092", "events", "", "  ");
-        StreamConfig invalid = new StreamConfig("localhost:9092", "events", "", "newest");
+        StreamConfig blank = new StreamConfig("localhost:9092", "events", "", "  ", null);
+        StreamConfig invalid = new StreamConfig("localhost:9092", "events", "", "newest", null);
 
         assertThat(support.resolveAutoOffsetReset(nullConfig())).isEqualTo("latest");
         assertThat(support.resolveAutoOffsetReset(blank)).isEqualTo("latest");
@@ -63,12 +64,31 @@ class KafkaConfigSupportTest {
 
     @Test
     void resolveAutoOffsetResetAcceptsEarliest() {
-        StreamConfig config = new StreamConfig("localhost:9092", "events", "", " EARLIEST ");
+        StreamConfig config = new StreamConfig("localhost:9092", "events", "", " EARLIEST ", null);
 
         assertThat(support.resolveAutoOffsetReset(config)).isEqualTo("earliest");
     }
 
+    @Test
+    void resolveConsumerGroupUsesProvidedNameOrRandomId() {
+        StreamConfig named = new StreamConfig("localhost:9092", "events", "", null, " my-group ");
+        StreamConfig anonymous = new StreamConfig("localhost:9092", "events", "", null, null);
+
+        assertThat(support.resolveConsumerGroup(named)).isEqualTo("my-group");
+        assertThat(support.resolveConsumerGroup(anonymous)).startsWith("kafka-web-clients-");
+        assertThat(support.hasNamedConsumerGroup(named)).isTrue();
+        assertThat(support.hasNamedConsumerGroup(anonymous)).isFalse();
+    }
+
+    @Test
+    void resolveOffsetResetAcceptsCommittedAndMapsKafkaFallback() {
+        StreamConfig committed = new StreamConfig("localhost:9092", "events", "", "committed", "my-group");
+
+        assertThat(support.resolveOffsetReset(committed)).isEqualTo("committed");
+        assertThat(support.resolveAutoOffsetReset(committed)).isEqualTo("earliest");
+    }
+
     private StreamConfig nullConfig() {
-        return new StreamConfig("localhost:9092", "events", "", null);
+        return new StreamConfig("localhost:9092", "events", "", null, null);
     }
 }
