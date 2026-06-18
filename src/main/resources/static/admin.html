@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kafka Web Clients — Admin</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+    <div class="container" id="appContainer">
+        <header>
+            <h1>Kafka Admin</h1>
+            <p>Connect to a Kafka cluster and manage topics, consumer groups, and offsets.</p>
+        </header>
+
+        <nav class="page-nav" aria-label="Pages">
+            <a href="/">Stream</a>
+            <a href="/admin" class="active">Admin</a>
+        </nav>
+
+        <section class="card" id="configSection">
+            <h2>Configuration</h2>
+
+            <div id="configBody">
+                <div class="field">
+                    <label for="bootstrapServers">Kafka Bootstrap Servers</label>
+                    <input type="text" id="bootstrapServers" placeholder="localhost:9092,localhost:9093">
+                    <p class="hint">Comma-separated broker addresses.</p>
+                </div>
+            </div>
+
+            <div id="configSummary" class="hidden">
+                Connected to <strong id="configSummaryServers"></strong>
+            </div>
+
+            <div id="configError" class="config-error hidden" role="alert"></div>
+
+            <div class="actions">
+                <button type="button" id="submitConfigBtn" class="btn-primary">Submit Config</button>
+                <span class="edit-config-wrap hidden" id="editConfigWrap">
+                    <button type="button" id="editConfigBtn" class="btn-secondary">Edit Config</button>
+                </span>
+            </div>
+        </section>
+
+        <section class="card admin-locked" id="adminSection">
+            <h2>Admin</h2>
+            <div class="admin-grid">
+                <div class="admin-block">
+                    <h3>Topics</h3>
+                    <div class="actions">
+                        <button type="button" id="listTopicsBtn" class="btn-secondary">List User Topics</button>
+                    </div>
+                    <div id="topicList" class="topic-list hidden"></div>
+                    <div id="topicListFeedback" class="admin-feedback hidden" role="status"></div>
+                </div>
+
+                <div class="admin-block">
+                    <h3>Create Topic</h3>
+                    <div class="admin-inline">
+                        <div class="field">
+                            <label for="createTopicName">Topic name</label>
+                            <input type="text" id="createTopicName" placeholder="new-topic">
+                        </div>
+                        <div class="field">
+                            <label for="createTopicPartitions">Partitions</label>
+                            <input type="number" id="createTopicPartitions" min="1" value="1">
+                        </div>
+                        <div class="field">
+                            <label for="createTopicReplication">Replication factor</label>
+                            <input type="number" id="createTopicReplication" min="1" value="1">
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" id="createTopicBtn" class="btn-primary">Create Topic</button>
+                    </div>
+                    <div id="createTopicFeedback" class="admin-feedback hidden" role="status"></div>
+                </div>
+
+                <div class="admin-block">
+                    <h3>Delete Topic</h3>
+                    <div class="admin-inline">
+                        <div class="field">
+                            <label for="deleteTopicName">Topic name</label>
+                            <input type="text" id="deleteTopicName" placeholder="topic-to-delete">
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" id="deleteTopicBtn" class="btn-danger">Delete Topic</button>
+                    </div>
+                    <div id="deleteTopicFeedback" class="admin-feedback hidden" role="status"></div>
+                </div>
+
+                <div class="admin-block">
+                    <h3>Consumer Groups</h3>
+                    <div class="admin-inline">
+                        <div class="field">
+                            <label for="consumerGroupsTopic">Topic</label>
+                            <input type="text" id="consumerGroupsTopic" placeholder="my-topic">
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" id="loadConsumerGroupsBtn" class="btn-secondary">Load Groups &amp; Offsets</button>
+                    </div>
+                    <div id="consumerGroupsFeedback" class="admin-feedback hidden" role="status"></div>
+                    <div id="consumerGroupsTableWrap" class="hidden"></div>
+                </div>
+
+                <div class="admin-block">
+                    <h3>Reset Offset</h3>
+                    <div class="admin-inline">
+                        <div class="field">
+                            <label for="resetOffsetTopic">Topic</label>
+                            <input type="text" id="resetOffsetTopic" placeholder="my-topic">
+                        </div>
+                        <div class="field">
+                            <label for="resetOffsetGroup">Consumer group</label>
+                            <input type="text" id="resetOffsetGroup" placeholder="my-group">
+                        </div>
+                        <div class="field">
+                            <label for="resetOffsetValue">Offset</label>
+                            <input type="number" id="resetOffsetValue" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" id="resetOffsetBtn" class="btn-primary">Reset Offset</button>
+                    </div>
+                    <div id="resetOffsetFeedback" class="admin-feedback hidden" role="status"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const appContainer = document.getElementById('appContainer');
+        const configSection = document.getElementById('configSection');
+        const configBody = document.getElementById('configBody');
+        const configSummary = document.getElementById('configSummary');
+        const configSummaryServers = document.getElementById('configSummaryServers');
+        const configError = document.getElementById('configError');
+        const bootstrapServers = document.getElementById('bootstrapServers');
+        const submitConfigBtn = document.getElementById('submitConfigBtn');
+        const editConfigWrap = document.getElementById('editConfigWrap');
+        const editConfigBtn = document.getElementById('editConfigBtn');
+        const adminSection = document.getElementById('adminSection');
+        const listTopicsBtn = document.getElementById('listTopicsBtn');
+        const topicList = document.getElementById('topicList');
+        const topicListFeedback = document.getElementById('topicListFeedback');
+        const createTopicName = document.getElementById('createTopicName');
+        const createTopicPartitions = document.getElementById('createTopicPartitions');
+        const createTopicReplication = document.getElementById('createTopicReplication');
+        const createTopicBtn = document.getElementById('createTopicBtn');
+        const createTopicFeedback = document.getElementById('createTopicFeedback');
+        const deleteTopicName = document.getElementById('deleteTopicName');
+        const deleteTopicBtn = document.getElementById('deleteTopicBtn');
+        const deleteTopicFeedback = document.getElementById('deleteTopicFeedback');
+        const consumerGroupsTopic = document.getElementById('consumerGroupsTopic');
+        const loadConsumerGroupsBtn = document.getElementById('loadConsumerGroupsBtn');
+        const consumerGroupsFeedback = document.getElementById('consumerGroupsFeedback');
+        const consumerGroupsTableWrap = document.getElementById('consumerGroupsTableWrap');
+        const resetOffsetTopic = document.getElementById('resetOffsetTopic');
+        const resetOffsetGroup = document.getElementById('resetOffsetGroup');
+        const resetOffsetValue = document.getElementById('resetOffsetValue');
+        const resetOffsetBtn = document.getElementById('resetOffsetBtn');
+        const resetOffsetFeedback = document.getElementById('resetOffsetFeedback');
+
+        let configSubmitted = false;
+        const configFields = [bootstrapServers];
+
+        function setConfigCollapsed(collapsed) {
+            configBody.classList.toggle('hidden', collapsed);
+            configSummary.classList.toggle('hidden', !collapsed);
+            configSection.classList.toggle('config-collapsed', collapsed);
+            appContainer.classList.toggle('config-collapsed', collapsed);
+        }
+
+        function updateConfigSummary() {
+            configSummaryServers.textContent = bootstrapServers.value.trim();
+        }
+
+        function setConfigError(message) {
+            if (message) {
+                configError.textContent = message;
+                configError.classList.remove('hidden');
+            } else {
+                configError.textContent = '';
+                configError.classList.add('hidden');
+            }
+        }
+
+        function setConfigReadonly(readonly) {
+            configFields.forEach(field => field.readOnly = readonly);
+            submitConfigBtn.classList.toggle('hidden', readonly);
+            editConfigWrap.classList.toggle('hidden', !readonly);
+            adminSection.classList.toggle('admin-locked', !readonly);
+            setConfigCollapsed(readonly);
+            if (readonly) {
+                updateConfigSummary();
+            }
+        }
+
+        function getClusterConnection() {
+            return {
+                bootstrapServers: bootstrapServers.value.trim(),
+                additionalProperties: ''
+            };
+        }
+
+        function validateBootstrapServersOnly() {
+            if (!bootstrapServers.value.trim()) {
+                setConfigError('Bootstrap servers are required');
+                return false;
+            }
+            return true;
+        }
+
+        function setAdminFeedback(element, message, type) {
+            if (!message) {
+                element.textContent = '';
+                element.className = 'admin-feedback hidden';
+                return;
+            }
+
+            element.textContent = message;
+            element.className = 'admin-feedback ' + (type === 'success' ? 'producer-success' : 'config-error');
+            element.classList.remove('hidden');
+        }
+
+        function renderTopicList(topics) {
+            if (!topics || topics.length === 0) {
+                topicList.innerHTML = '<div class="topic-list-item">No user topics found.</div>';
+            } else {
+                topicList.innerHTML = topics
+                    .map(name => `<div class="topic-list-item">${escapeHtml(name)}</div>`)
+                    .join('');
+            }
+            topicList.classList.remove('hidden');
+        }
+
+        function renderConsumerGroupsTable(groups) {
+            if (!groups || groups.length === 0) {
+                consumerGroupsTableWrap.innerHTML = '<p class="hint">No consumer groups have committed offsets for this topic.</p>';
+            } else {
+                const rows = groups.map(group => {
+                    const offsets = (group.partitions || [])
+                        .map(partition => `p${partition.partition}=${partition.offset}`)
+                        .join(', ');
+                    return `<tr><td>${escapeHtml(group.groupId)}</td><td>${escapeHtml(offsets)}</td></tr>`;
+                }).join('');
+
+                consumerGroupsTableWrap.innerHTML = `
+                    <table class="consumer-groups-table">
+                        <thead>
+                            <tr><th>Consumer group</th><th>Committed offsets</th></tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+            }
+            consumerGroupsTableWrap.classList.remove('hidden');
+        }
+
+        async function postAdminJson(url, body) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            let result;
+            try {
+                result = await response.json();
+            } catch {
+                throw new Error('Invalid response from server');
+            }
+
+            return { response, result };
+        }
+
+        submitConfigBtn.addEventListener('click', async () => {
+            if (!validateBootstrapServersOnly() || configSubmitted) return;
+
+            const originalLabel = submitConfigBtn.textContent;
+            submitConfigBtn.disabled = true;
+            submitConfigBtn.textContent = 'Checking...';
+            setConfigError('');
+
+            try {
+                const response = await fetch('/api/config/validate-cluster', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(getClusterConnection())
+                });
+
+                let result;
+                try {
+                    result = await response.json();
+                } catch {
+                    setConfigError('Invalid response from server');
+                    return;
+                }
+
+                if (!response.ok || !result.valid) {
+                    setConfigError(result.error || 'Failed to validate Kafka configuration');
+                    return;
+                }
+
+                configSubmitted = true;
+                setConfigReadonly(true);
+                setConfigError('');
+            } catch {
+                setConfigError('Could not reach the server');
+            } finally {
+                submitConfigBtn.disabled = false;
+                submitConfigBtn.textContent = originalLabel;
+            }
+        });
+
+        editConfigBtn.addEventListener('click', () => {
+            configSubmitted = false;
+            setConfigReadonly(false);
+            setConfigError('');
+        });
+
+        listTopicsBtn.addEventListener('click', async () => {
+            if (!configSubmitted || !validateBootstrapServersOnly()) return;
+
+            const originalLabel = listTopicsBtn.textContent;
+            listTopicsBtn.disabled = true;
+            listTopicsBtn.textContent = 'Loading...';
+            setAdminFeedback(topicListFeedback, '');
+
+            try {
+                const { response, result } = await postAdminJson('/api/admin/topics/list', getClusterConnection());
+                if (!response.ok || !result.success) {
+                    setAdminFeedback(topicListFeedback, result.error || 'Failed to list topics', 'error');
+                    topicList.classList.add('hidden');
+                    return;
+                }
+
+                renderTopicList(result.topics);
+                setAdminFeedback(topicListFeedback, result.message, 'success');
+            } catch (error) {
+                setAdminFeedback(topicListFeedback, error.message || 'Could not reach the server', 'error');
+                topicList.classList.add('hidden');
+            } finally {
+                listTopicsBtn.disabled = false;
+                listTopicsBtn.textContent = originalLabel;
+            }
+        });
+
+        createTopicBtn.addEventListener('click', async () => {
+            if (!configSubmitted || !validateBootstrapServersOnly()) return;
+
+            const topicName = createTopicName.value.trim();
+            if (!topicName) {
+                setAdminFeedback(createTopicFeedback, 'Topic name is required', 'error');
+                return;
+            }
+
+            const originalLabel = createTopicBtn.textContent;
+            createTopicBtn.disabled = true;
+            createTopicBtn.textContent = 'Creating...';
+            setAdminFeedback(createTopicFeedback, '');
+
+            try {
+                const { response, result } = await postAdminJson('/api/admin/topics/create', {
+                    ...getClusterConnection(),
+                    topic: topicName,
+                    partitions: Number(createTopicPartitions.value),
+                    replicationFactor: Number(createTopicReplication.value)
+                });
+
+                if (!response.ok || !result.success) {
+                    setAdminFeedback(createTopicFeedback, result.error || 'Failed to create topic', 'error');
+                    return;
+                }
+
+                setAdminFeedback(createTopicFeedback, result.message, 'success');
+            } catch (error) {
+                setAdminFeedback(createTopicFeedback, error.message || 'Could not reach the server', 'error');
+            } finally {
+                createTopicBtn.disabled = false;
+                createTopicBtn.textContent = originalLabel;
+            }
+        });
+
+        deleteTopicBtn.addEventListener('click', async () => {
+            if (!configSubmitted || !validateBootstrapServersOnly()) return;
+
+            const topicName = deleteTopicName.value.trim();
+            if (!topicName) {
+                setAdminFeedback(deleteTopicFeedback, 'Topic name is required', 'error');
+                return;
+            }
+
+            if (!window.confirm(`Delete topic "${topicName}"? This cannot be undone.`)) {
+                return;
+            }
+
+            const originalLabel = deleteTopicBtn.textContent;
+            deleteTopicBtn.disabled = true;
+            deleteTopicBtn.textContent = 'Deleting...';
+            setAdminFeedback(deleteTopicFeedback, '');
+
+            try {
+                const { response, result } = await postAdminJson('/api/admin/topics/delete', {
+                    ...getClusterConnection(),
+                    topic: topicName
+                });
+
+                if (!response.ok || !result.success) {
+                    setAdminFeedback(deleteTopicFeedback, result.error || 'Failed to delete topic', 'error');
+                    return;
+                }
+
+                setAdminFeedback(deleteTopicFeedback, result.message, 'success');
+            } catch (error) {
+                setAdminFeedback(deleteTopicFeedback, error.message || 'Could not reach the server', 'error');
+            } finally {
+                deleteTopicBtn.disabled = false;
+                deleteTopicBtn.textContent = originalLabel;
+            }
+        });
+
+        loadConsumerGroupsBtn.addEventListener('click', async () => {
+            if (!configSubmitted || !validateBootstrapServersOnly()) return;
+
+            const topicName = consumerGroupsTopic.value.trim();
+            if (!topicName) {
+                setAdminFeedback(consumerGroupsFeedback, 'Topic is required', 'error');
+                return;
+            }
+
+            const originalLabel = loadConsumerGroupsBtn.textContent;
+            loadConsumerGroupsBtn.disabled = true;
+            loadConsumerGroupsBtn.textContent = 'Loading...';
+            setAdminFeedback(consumerGroupsFeedback, '');
+            consumerGroupsTableWrap.classList.add('hidden');
+
+            try {
+                const { response, result } = await postAdminJson('/api/admin/consumer-groups', {
+                    ...getClusterConnection(),
+                    topic: topicName
+                });
+
+                if (!response.ok || !result.success) {
+                    setAdminFeedback(consumerGroupsFeedback, result.error || 'Failed to load consumer groups', 'error');
+                    return;
+                }
+
+                renderConsumerGroupsTable(result.groups);
+                setAdminFeedback(consumerGroupsFeedback, result.message, 'success');
+            } catch (error) {
+                setAdminFeedback(consumerGroupsFeedback, error.message || 'Could not reach the server', 'error');
+            } finally {
+                loadConsumerGroupsBtn.disabled = false;
+                loadConsumerGroupsBtn.textContent = originalLabel;
+            }
+        });
+
+        resetOffsetBtn.addEventListener('click', async () => {
+            if (!configSubmitted || !validateBootstrapServersOnly()) return;
+
+            const topicName = resetOffsetTopic.value.trim();
+            const groupName = resetOffsetGroup.value.trim();
+            const offset = Number(resetOffsetValue.value);
+
+            if (!topicName) {
+                setAdminFeedback(resetOffsetFeedback, 'Topic is required', 'error');
+                return;
+            }
+            if (!groupName) {
+                setAdminFeedback(resetOffsetFeedback, 'Consumer group is required', 'error');
+                return;
+            }
+            if (!Number.isFinite(offset) || offset < 0) {
+                setAdminFeedback(resetOffsetFeedback, 'Offset must be zero or greater', 'error');
+                return;
+            }
+
+            if (!window.confirm(`Reset committed offsets for group "${groupName}" on topic "${topicName}" to ${offset}?`)) {
+                return;
+            }
+
+            const originalLabel = resetOffsetBtn.textContent;
+            resetOffsetBtn.disabled = true;
+            resetOffsetBtn.textContent = 'Resetting...';
+            setAdminFeedback(resetOffsetFeedback, '');
+
+            try {
+                const { response, result } = await postAdminJson('/api/admin/consumer-groups/reset-offset', {
+                    ...getClusterConnection(),
+                    topic: topicName,
+                    consumerGroup: groupName,
+                    offset
+                });
+
+                if (!response.ok || !result.success) {
+                    setAdminFeedback(resetOffsetFeedback, result.error || 'Failed to reset offset', 'error');
+                    return;
+                }
+
+                setAdminFeedback(resetOffsetFeedback, result.message, 'success');
+            } catch (error) {
+                setAdminFeedback(resetOffsetFeedback, error.message || 'Could not reach the server', 'error');
+            } finally {
+                resetOffsetBtn.disabled = false;
+                resetOffsetBtn.textContent = originalLabel;
+            }
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        bootstrapServers.addEventListener('input', () => {
+            if (!configSubmitted) {
+                setConfigError('');
+            }
+        });
+    </script>
+</body>
+</html>

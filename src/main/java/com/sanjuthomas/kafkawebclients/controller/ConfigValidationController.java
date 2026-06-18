@@ -1,5 +1,6 @@
 package com.sanjuthomas.kafkawebclients.controller;
 
+import com.sanjuthomas.kafkawebclients.model.ClusterConnectionRequest;
 import com.sanjuthomas.kafkawebclients.model.ConfigValidationResult;
 import com.sanjuthomas.kafkawebclients.model.StreamConfig;
 import com.sanjuthomas.kafkawebclients.service.KafkaConnectivityOperations;
@@ -22,5 +23,10 @@ public class ConfigValidationController {
     @PostMapping("/validate")
     public Mono<ConfigValidationResult> validate(@RequestBody StreamConfig config) {
         return kafkaConnectivityService.validate(config);
+    }
+
+    @PostMapping("/validate-cluster")
+    public Mono<ConfigValidationResult> validateCluster(@RequestBody ClusterConnectionRequest request) {
+        return kafkaConnectivityService.validateCluster(request);
     }
 }

@@ -1,5 +1,6 @@
 package com.sanjuthomas.kafkawebclients.service;
 
+import com.sanjuthomas.kafkawebclients.model.ClusterConnectionRequest;
 import com.sanjuthomas.kafkawebclients.model.ConfigValidationResult;
 import com.sanjuthomas.kafkawebclients.model.StreamConfig;
 import com.sanjuthomas.kafkawebclients.support.AdminClientFacade;
@@ -53,6 +54,99 @@ public class KafkaConnectivityService implements KafkaConnectivityOperations {
                 .subscribeOn(Schedulers.boundedElastic())
                 .onErrorReturn(ConfigValidationResult.failure(
                         "Could not validate Kafka connectivity. Please try again."));
+    }
+
+    @Override
+    public Mono<ConfigValidationResult> validateCluster(ClusterConnectionRequest request) {
+        if (request == null) {
+            return Mono.just(ConfigValidationResult.failure("Configuration is required"));
+        }
+
+        if (request.bootstrapServers() == null || request.bootstrapServers().isBlank()) {
+            return Mono.just(ConfigValidationResult.failure("Bootstrap servers are required"));
+        }
+
+        return Mono.fromCallable(() -> validateClusterBlocking(request))
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorReturn(ConfigValidationResult.failure(
+                        "Could not validate Kafka connectivity. Please try again."));
+    }
+
+    private ConfigValidationResult validateClusterBlocking(ClusterConnectionRequest request) {
+        StreamConfig config = new StreamConfig(
+                request.bootstrapServers().trim(),
+                "admin",
+                request.additionalProperties() == null ? "" : request.additionalProperties(),
+                null,
+                null);
+        Map<String, Object> adminProps = kafkaConfigSupport.buildAdminProperties(config);
+        String bootstrapServers = request.bootstrapServers().trim();
+
+        try (AdminClientFacade adminClient = adminClientFacadeFactory.create(adminProps)) {
+            String clusterId = adminClient.clusterId();
+            String clusterLabel = clusterId != null && !clusterId.isBlank() ? clusterId : "connected";
+            return ConfigValidationResult.success(
+                    "Connected to Kafka cluster (" + clusterLabel + ") at " + bootstrapServers + ".");
+        } catch (ExecutionException e) {
+            return ConfigValidationResult.failure(
+                    toClusterError(e.getCause() != null ? e.getCause() : e, bootstrapServers));
+        } catch (java.util.concurrent.TimeoutException e) {
+            return ConfigValidationResult.failure(
+                    "Could not connect to Kafka at " + bootstrapServers
+                            + ". The broker did not respond within " + CONNECT_TIMEOUT_SECONDS + " seconds.");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ConfigValidationResult.failure("Kafka connectivity check was interrupted");
+        } catch (Exception e) {
+            return ConfigValidationResult.failure(toClusterError(e, bootstrapServers));
+        }
+    }
+
+    private String toClusterError(Throwable error, String bootstrapServers) {
+        Throwable root = unwrap(error);
+
+        if (root instanceof ClusterAuthorizationException) {
+            return "Not authorized to connect to the Kafka cluster at " + bootstrapServers + ".";
+        }
+        if (root instanceof AuthenticationException) {
+            return "Kafka authentication failed. Check your credentials in additional properties.";
+        }
+        if (root instanceof UnknownHostException) {
+            return "Could not resolve a Kafka host. Check bootstrap servers: " + bootstrapServers + ".";
+        }
+        if (root instanceof ConnectException) {
+            return "Could not connect to Kafka at " + bootstrapServers
+                    + ". The broker may be down or unreachable.";
+        }
+        if (root instanceof TimeoutException || root instanceof java.util.concurrent.TimeoutException) {
+            return "Could not connect to Kafka at " + bootstrapServers
+                    + ". Check that the broker is running and reachable.";
+        }
+
+        String message = root.getMessage();
+        if (message != null) {
+            String lower = message.toLowerCase();
+            if (lower.contains("timed out waiting for a node assignment")
+                    || lower.contains("could not be established")
+                    || lower.contains("node may not be available")
+                    || lower.contains("connection refused")
+                    || lower.contains("connection timed out")) {
+                return "Could not connect to Kafka at " + bootstrapServers
+                        + ". Check that the broker is running and reachable.";
+            }
+            if (lower.contains("unknown host") || lower.contains("nodename nor servname")) {
+                return "Could not resolve a Kafka host. Check bootstrap servers: " + bootstrapServers + ".";
+            }
+            if (lower.contains("authentication") || lower.contains("sasl")) {
+                return "Kafka authentication failed. Check your credentials in additional properties.";
+            }
+            if (lower.contains("ssl") || lower.contains("certificate")) {
+                return "Kafka SSL/TLS connection failed. Check your security settings in additional properties.";
+            }
+        }
+
+        return "Could not connect to Kafka at " + bootstrapServers
+                + ". Check the broker address and additional properties.";
     }
 
     private ConfigValidationResult validateBlocking(StreamConfig config) {

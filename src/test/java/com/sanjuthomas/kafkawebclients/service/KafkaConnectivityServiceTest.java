@@ -190,6 +190,34 @@ class KafkaConnectivityServiceTest {
         assertThat(closed).isTrue();
     }
 
+    @Test
+    void validateClusterRequiresBootstrapServers() {
+        StepVerifier.create(service.validateCluster(new com.sanjuthomas.kafkawebclients.model.ClusterConnectionRequest("", "")))
+                .assertNext(result -> assertThat(result.error()).isEqualTo("Bootstrap servers are required"))
+                .verifyComplete();
+    }
+
+    @Test
+    void validateClusterReturnsSuccessWhenBrokerResponds() {
+        StepVerifier.create(service.validateCluster(
+                new com.sanjuthomas.kafkawebclients.model.ClusterConnectionRequest("localhost:9092", "")))
+                .assertNext(result -> {
+                    assertThat(result.valid()).isTrue();
+                    assertThat(result.message()).contains("Connected to Kafka cluster");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void validateClusterMapsConnectionFailures() {
+        adminClientFacade.clusterIdException = new ConnectException("connection refused");
+
+        StepVerifier.create(service.validateCluster(
+                new com.sanjuthomas.kafkawebclients.model.ClusterConnectionRequest("localhost:9092", "")))
+                .assertNext(result -> assertThat(result.error()).containsIgnoringCase("could not connect"))
+                .verifyComplete();
+    }
+
     private static final class FakeAdminClientFacade implements AdminClientFacade {
 
         private int partitionCount = 1;
@@ -211,6 +239,30 @@ class KafkaConnectivityServiceTest {
                 throw partitionCountException;
             }
             return partitionCount;
+        }
+
+        @Override
+        public java.util.List<String> listUserTopics() {
+            return java.util.List.of();
+        }
+
+        @Override
+        public void createTopic(String topic, int partitions, short replicationFactor) {
+        }
+
+        @Override
+        public void deleteTopic(String topic) {
+        }
+
+        @Override
+        public java.util.List<com.sanjuthomas.kafkawebclients.model.ConsumerGroupOffsetInfo> listConsumerGroupOffsetsForTopic(
+                String topic
+        ) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public void resetConsumerGroupOffset(String consumerGroup, String topic, long offset) {
         }
 
         @Override

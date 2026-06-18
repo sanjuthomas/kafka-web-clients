@@ -45,6 +45,11 @@ public class WebSocketConfig implements WebFluxConfigurer {
                 request -> ServerResponse.ok()
                         .contentType(MediaType.TEXT_HTML)
                         .bodyValue(new ClassPathResource("static/index.html"))
+        ).andRoute(
+                GET("/admin"),
+                request -> ServerResponse.ok()
+                        .contentType(MediaType.TEXT_HTML)
+                        .bodyValue(new ClassPathResource("static/admin.html"))
         );
     }
 

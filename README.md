@@ -53,7 +53,7 @@ When the app runs in Docker and Kafka runs on your host machine, use `host.docke
 
 ### Docker Hub
 
-CI publishes an image to Docker Hub on every push to `main` and on version tags (`v*`, e.g. `v1.0.0`).
+CI publishes a multi-arch image (`linux/amd64`, `linux/arm64`) to Docker Hub on every push to `main` and on version tags (`v*`, e.g. `v1.0.0`).
 
 Pull the latest image:
 
